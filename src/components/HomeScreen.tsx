@@ -98,16 +98,8 @@ export function HomeScreen() {
   }, []);
   const statsRows = buildStats(stats);
   return (
-    <main style={{ paddingTop: 32, paddingBottom: 96 }}>
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.4fr 1fr",
-          gap: 56,
-          alignItems: "end",
-          padding: "20px 0 36px",
-        }}
-      >
+    <main style={{ paddingTop: 8, paddingBottom: 96 }}>
+      <section className="lh-hero">
         <div>
           <div className="kicker" style={{ marginBottom: 18 }}>
             Est. 2026 · A verification engine for remote work
@@ -127,8 +119,6 @@ export function HomeScreen() {
           </p>
         </div>
       </section>
-
-      <hr className="rule" />
 
       <section style={{ padding: "40px 0 32px" }}>
         <div className="kicker" style={{ marginBottom: 14 }}>
@@ -158,9 +148,11 @@ export function HomeScreen() {
                 fontFamily: "var(--mono)",
                 fontSize: 12,
                 color: "var(--ink)",
+                textAlign: "left",
                 textDecoration: "underline",
                 textDecorationColor: "var(--ink-32)",
                 textUnderlineOffset: 4,
+                wordBreak: "break-all",
               }}
             >
               {s.url.replace(/^https?:\/\//, "")}
@@ -187,10 +179,8 @@ export function HomeScreen() {
         </div>
 
         <div
+          className="lh-grid-4"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 0,
             borderTop: "1px solid var(--ink)",
             borderBottom: "1px solid var(--ink)",
           }}
@@ -257,14 +247,7 @@ export function HomeScreen() {
 
       <hr className="rule-hair" />
 
-      <section
-        style={{
-          padding: "34px 0",
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 28,
-        }}
-      >
+      <section className="lh-stats-4" style={{ padding: "34px 0" }}>
         {statsRows.map(([n, label]) => (
           <div key={label}>
             <div
@@ -287,14 +270,7 @@ export function HomeScreen() {
 
       <hr className="rule" />
 
-      <section
-        style={{
-          padding: "40px 0 0",
-          display: "grid",
-          gridTemplateColumns: "1fr 1.5fr",
-          gap: 48,
-        }}
-      >
+      <section className="lh-split lh-split-editor" style={{ padding: "40px 0 0" }}>
         <div className="kicker">From the Editors</div>
         <div>
           <p className="dek dropcap" style={{ margin: 0 }}>

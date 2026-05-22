@@ -121,14 +121,7 @@ export function LibraryScreen() {
 
   return (
     <main style={{ paddingTop: 32, paddingBottom: 96 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          marginBottom: 22,
-        }}
-      >
+      <div className="lh-library-head">
         <div>
           <div className="kicker">Library · all inspections</div>
           <h1 className="headline" style={{ margin: "8px 0 0" }}>
@@ -151,16 +144,7 @@ export function LibraryScreen() {
           >
             Awaiting verification · ingested by the 04:00 ET cron
           </div>
-          <div
-            className="byline"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "60px 1fr 1.2fr 1fr 90px 130px",
-              padding: "12px 0",
-              borderTop: "1px solid var(--ink-16)",
-              borderBottom: "1px solid var(--ink-16)",
-            }}
-          >
+          <div className="byline lh-pending-head">
             <div>Source</div>
             <div>Company</div>
             <div>Role</div>
@@ -169,16 +153,7 @@ export function LibraryScreen() {
             <div style={{ textAlign: "right" }}>Action</div>
           </div>
           {pending.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "60px 1fr 1.2fr 1fr 90px 130px",
-                padding: "16px 0",
-                alignItems: "center",
-                borderBottom: "1px solid var(--ink-08)",
-              }}
-            >
+            <div key={p.id} className="lh-pending-row">
               <div className="mono" style={{ fontSize: 11, color: "var(--ink-50)" }}>
                 {p.source}
               </div>
@@ -213,15 +188,7 @@ export function LibraryScreen() {
 
       <hr className="rule" style={{ marginTop: 28 }} />
 
-      <div
-        className="byline"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "60px 1.4fr 1.6fr 0.8fr 90px 130px",
-          padding: "14px 0",
-          borderBottom: "1px solid var(--ink-16)",
-        }}
-      >
+      <div className="byline lh-lib-head">
         <div>№</div>
         <div>Company</div>
         <div>Role</div>
@@ -233,19 +200,13 @@ export function LibraryScreen() {
       {all.map((row, i) => (
         <div
           key={row.id}
+          className="lh-lib-row"
           onClick={() => {
             if (row._full) {
               router.push(`/report/${row._full.id}`);
             }
           }}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "60px 1.4fr 1.6fr 0.8fr 90px 130px",
-            padding: "20px 0",
-            alignItems: "baseline",
-            borderBottom: "1px solid var(--ink-08)",
-            cursor: row._full ? "pointer" : "default",
-          }}
+          style={{ cursor: row._full ? "pointer" : "default" }}
           onMouseEnter={(e) => {
             if (row._full)
               (e.currentTarget as HTMLDivElement).style.background =

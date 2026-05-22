@@ -27,6 +27,27 @@ type Model = string;
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
+// Job boards / aggregators / ATS platforms that host listings on behalf
+// of companies. NONE of these are the hiring company themselves — if
+// Gemini reports one of these as the employer, the company identity is
+// effectively unknown and the Real pillar is capped.
+const JOB_BOARDS = [
+  "linkedin", "indeed", "glassdoor", "wellfound", "angellist",
+  "otta", "welcome to the jungle", "ziprecruiter", "monster",
+  "dice", "builtin", "hired", "remote.co", "weworkremotely",
+  "we work remotely", "remoteok", "remote ok", "working nomads",
+  "jobspresso", "lever", "greenhouse", "ashby", "workable",
+  "workday", "smartrecruiters", "bamboohr", "jazzhr", "recruitee",
+  "teamtailor", "comeet", "breezy", "talentlyft",
+  "yc work at a startup", "y combinator", "work at a startup",
+] as const;
+
+function isJobBoardName(name: string): boolean {
+  if (!name) return false;
+  const n = name.toLowerCase().trim().replace(/\.(com|io|co|net|org)$/i, "").trim();
+  return JOB_BOARDS.some((b) => n === b || n.startsWith(b + " ") || n.endsWith(" " + b));
+}
+
 // Two-pass design: grounded search produces an evidence dossier; a second
 // structured pass coerces it into our 4-pillar Posting JSON. Gemini does
 // not allow `googleSearch` and `responseSchema` in the same call.
@@ -34,49 +55,153 @@ const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const STAGE1_PROMPT = `You are Lighthouse, a verification engine for remote job postings.
 Behave as an investigative AGENT, not a single-shot model. Run multiple
 Google Search queries (you have the googleSearch tool) until you have
-*at least 3 concrete facts per pillar*, each backed by a real source URL.
+*at least 3 specific, source-cited facts per pillar*. Specific means at
+least one of: a date in YYYY-MM-DD form, a dollar amount, a discrete
+count, or a named person/investor/product — backed by a real URL.
+
+===== STOP — IDENTIFY THE HIRING COMPANY FIRST =====
+
+The HIRING COMPANY is the employer, NOT the platform where the posting
+lives. Job boards and ATS platforms host listings on behalf of companies;
+they are virtually never the employer themselves. Get this wrong and the
+entire verification is invalid.
+
+NEVER report any of these as the hiring company:
+  LinkedIn · Indeed · Glassdoor · Wellfound (formerly AngelList) · Otta ·
+  Welcome to the Jungle · ZipRecruiter · Monster · Dice · BuiltIn · Hired ·
+  Remote.co · WeWorkRemotely · RemoteOK · Working Nomads · Jobspresso ·
+  Lever · Greenhouse · Ashby · Workable · Workday · SmartRecruiters ·
+  BambooHR · JazzHR · Recruitee · Teamtailor · Comeet · Breezy · Talentlyft ·
+  YC Work at a Startup.
+
+These are all SURFACES. If the URL is on one of them, dig until you find
+the underlying employer:
+  • Read the page <title> — usually "{Role} at {Company} – {Board}".
+  • Read the URL slug — "linkedin.com/jobs/view/.../{company-slug}-..." or
+    "wellfound.com/company/{company-slug}/jobs/...".
+  • Search verbatim a unique JD phrase + "careers" or "about us".
+  • Search: site:linkedin.com/company/ "{role title}" "{location}".
+
+If after 3+ searches the employer is genuinely undeterminable (e.g.
+anonymized "Stealth Startup", recruiter-only listing with no signal),
+set company = "Unidentified — listed on {board}" and score the Real
+pillar at most 35 (verdict "fail") with evidence documenting what you
+tried. Do NOT default to the board's name.
 
 ===== HOW TO INVESTIGATE =====
 
-Step 1: identify the company and role from the URL.
-  • If the URL is on LinkedIn / Indeed / Glassdoor / Wellfound / Otta /
-    ZipRecruiter, the posting content is usually behind auth and NOT
-    fully fetchable. Don't give up — identify the COMPANY NAME from
-    the URL slug / page title, then investigate the company directly.
-  • If the URL is on a company-owned ATS (greenhouse, lever, ashby on
-    a company subdomain), the company is in the URL.
+Step 1: identify the company and role from the URL (per the rule above).
+  • Company-owned ATSes (greenhouse.io/{company}, jobs.lever.co/{company},
+    {company}.ashbyhq.com, jobs.{company}.com) put the company in the URL.
+  • Aggregator URLs (LinkedIn / Indeed / Glassdoor / Wellfound / etc.) hide
+    it — extract it from the slug or title and verify before proceeding.
 
 Step 2: run these searches verbatim (substitute the company / role).
-DO NOT skip — each one feeds a different pillar.
+DO NOT skip — each one feeds a different pillar. If a "PRIOR COMPANY
+KNOWLEDGE" block was supplied above, SKIP the queries it already
+answers (most of Real-1..4 and Credible-13..16 are usually covered) and
+redirect that budget to Active and Fair, which are posting-specific.
 
   REAL pillar:
-    1. WHOIS "{company-domain}"
-    2. site:sec.gov/edgar "{company}"
-    3. site:linkedin.com/company/ "{company}"
-    4. "{company}" "founded" OR "headquarters"
+    1. WHOIS "{company-domain}"                              (reg date, registrant)
+    2. site:sec.gov/edgar "{company}"                        (corp filings)
+    3. site:linkedin.com/company/ "{company}"                (LI page, headcount)
+    4. "{company}" "founded" OR "headquarters"               (HQ, founding year)
 
   ACTIVE pillar:
-    5. site:web.archive.org "{posting-url}"
-    6. "{role}" "{company}" -site:{posting-domain}        (find reposts)
+    5. site:web.archive.org "{posting-url}"                  (first-seen, snapshots)
+    6. "{role}" "{company}" -site:{posting-domain}           (repost spread)
     7. site:reddit.com "{company}" interview OR recruiter OR ghost
-    8. site:glassdoor.com "{company}" interviews
+    8. site:glassdoor.com "{company}" interviews             (response times)
 
   FAIR pillar:
-    9. site:levels.fyi "{company}" OR "{role}"
+    9. site:levels.fyi "{company}" OR "{role}"               (p25/p50/p75)
     10. site:glassdoor.com "{company}" salary
     11. "{company}" "process fee" OR "training fee" OR "equipment fee"
     12. "{company}" "scam" OR "fraud" OR "ghost job"
 
   CREDIBLE pillar:
-    13. site:crunchbase.com "{company}"
-    14. site:github.com "{company}" OR "{company-slug}"
+    13. site:crunchbase.com "{company}"                      (rounds, investors)
+    14. site:github.com "{company}" OR "{company-slug}"      (org commits)
     15. "{company}" "press release" OR "raised" OR "Series"
-    16. "{company-domain}" reviews OR testimonials
+    16. "{company-domain}" reviews OR testimonials OR changelog
 
 For every meaningful hit, capture the URL — that becomes the "src" for
 your evidence item. NEVER cite "Internal research", "lighthouse/...",
-"posting", or "company website" as a source — those are not real URLs.
-If a signal can't be verified, say so explicitly with weight "weak".
+"posting", "company website", "training data", or "knowledge" as a
+source — those are not real URLs. If a signal can't be verified, say so
+explicitly with weight "weak" and src "lighthouse/no-source".
+
+===== EVIDENCE STYLE GUIDE — MANDATORY =====
+
+Every evidence item is "weak" by default. You earn higher weights with
+SPECIFICITY. Generic statements like "the company seems legitimate",
+"recruiter looks real", or "product appears active" are FORBIDDEN —
+push through another search until you have a concrete fact, or
+downgrade to weak with a "could not corroborate" line.
+
+  STRONG — primary-source URL AND at least one of:
+    • a specific date (YYYY-MM-DD or "Mar 11, 2022"),
+    • a specific dollar amount or comp percentile,
+    • a discrete count,
+    • a named human / investor / product / commit.
+
+  Reference examples (model your wording on these):
+    ✓ "Domain orbit.work registered 2022-03-11, NS records stable for
+       38 months." — src: whois.iana.org
+    ✓ "Delaware C-corp filing on record. EIN matches Stripe Atlas
+       issuance." — src: sec.gov/edgar
+    ✓ "Recruiter Maya Chen — LinkedIn tenure 19 months, two prior
+       verified roles at Vercel." — src: linkedin.com/in/maya-chen
+    ✓ "Cash band $165k–$215k sits at p62–p84 of Levels.fyi senior
+       frontend, US-remote." — src: levels.fyi
+    ✓ "$4.2M seed led by South Park Commons, Apr 2024." — src: crunchbase.com
+    ✓ "47 GitHub repositories under orbit-labs, 11 with commits in the
+       last 14 days." — src: github.com/orbit-labs
+
+  MEDIUM — inferential, OR primary-source URL without specific numbers,
+  OR specific numbers without a primary URL.
+    ✓ "Two engineers joined the team within the last quarter, per
+       LinkedIn employment dates." — src: linkedin.com/company/orbit
+    ✓ "Scope statement names a single product surface — not a
+       multi-disciplinary catch-all." — src: <posting URL>
+
+  WEAK — soft signal, hearsay, header inference, or "could not
+  corroborate".
+    ✓ "Careers page Last-Modified header within 12 hours of crawl." —
+       src: http/headers
+    ✓ "Could not corroborate Series-A funding via Crunchbase." —
+       src: lighthouse/no-source
+
+Every "text" MUST be one self-contained sentence with at least one
+concrete element. If you can't include a date, number, or name, the
+weight is at most "weak".
+
+===== USE PRIOR KNOWLEDGE TO SAVE SEARCHES =====
+
+If a "PRIOR COMPANY KNOWLEDGE" block appears above, those facts were
+verified in earlier Lighthouse runs and stored in the Supabase company
+aggregate. Treat them as ground truth — DO NOT re-WHOIS, re-EDGAR, or
+re-Crunchbase a company the dossier already documents. Cite the prior
+fact (reuse the prior source URL when available) and redirect your
+search budget to what is NEW:
+  • Active signals (this posting's first-seen, repost cadence, recruiter
+    activity in the last 90 days)
+  • Fair signals (this role's current comp band vs. market p25–p75)
+  • Anything that may have shifted since the last inspection.
+
+If prior data shows a HIGH mean score (≥ 85) and a recent inspection
+(within ~30 days), do a LIGHT verification: emit 2–3 short
+re-confirmation items per pillar citing the prior dossier ("Prior
+dossier 2026-05-04: domain age 22mo, founders ex-Linear — re-confirmed.")
+and lean your effort on Active + Fair for the specific posting. This
+is by design: trusted companies stay trusted, and Lighthouse spends
+its grounded-search quota on the new posting, not on facts it already
+knows.
+
+If prior data conflicts with what you find live, flag it explicitly
+("Prior mean: 88; this run finds three new repost boards in the last
+6 weeks — Active downgraded to 64.") and trust the live data.
 
 ===== THE FOUR PILLARS =====
 
@@ -126,15 +251,15 @@ If a signal can't be verified, say so explicitly with weight "weak".
 
 ===== EVIDENCE QUALITY BAR =====
 
-For EACH pillar, output AT LEAST 3 evidence items, EACH with:
-  • A specific fact (with dates, numbers, named people where possible)
-  • A real URL you actually saw in your search results
-  • A weight: "strong" (specific, primary source), "medium" (inferential),
-    "weak" (soft / hearsay).
+For EACH pillar, output AT LEAST 3 evidence items conforming to the
+"Evidence Style Guide" above. Each item must be one self-contained
+sentence with at least one concrete element (date / number / named
+entity / dollar amount) and a real source URL.
 
 If your investigation comes up empty on a pillar, output that explicitly
-— "could not corroborate via Google" with weight "weak" — and lower the
-pillar's score. Better an honest 45 than a fabricated 85.
+— "could not corroborate via Google" with weight "weak" and src
+"lighthouse/no-source" — and lower the pillar's score. Better an honest
+45 than a fabricated 85.
 
 ===== POSTING EXTRACTION =====
 
@@ -155,8 +280,12 @@ companies (not the target). Same level, same function, comparable comp
 band. Pull from your knowledge of well-known companies in the same
 vertical. Format: company / role / comp band / your confidence (0-100).
 
-End with: VERDICT (VERIFIED 80+, INVESTIGATE 50–79, DECLINE < 50) and a
-short editorial headline (≤ 9 words). Concise but specific. Cite REAL
+End with: VERDICT (VERIFIED 80+, INVESTIGATE 50–79, DECLINE < 50), a
+short editorial HEADLINE (≤ 9 words), and a 2–3 sentence EDITORIAL in
+newspaper voice — measured, specific, no marketing fluff, no second
+person. Headlines should feel like a copy desk wrote them, e.g.
+"A clean signal, end to end.", "Real company. Stale posting. Vague
+offer.", "Eleven independent red flags. Do not apply." Cite REAL
 DOMAINS for every claim that supports a strong-weight evidence item.`;
 
 // Appended to STAGE1_PROMPT only when Google Search grounding is
@@ -166,7 +295,7 @@ const UNGROUNDED_NOTE = `\n\nIMPORTANT: Google Search grounding is currently UNA
 
 const STAGE2_PROMPT = (evidence: string, sourceUrl: string) => `You are Lighthouse, a precise data formatter. Below is an evidence dossier compiled by a research agent for a remote job posting at ${sourceUrl}.
 
-Convert it into the strict JSON schema below. Be faithful to the evidence — do NOT invent facts. If the evidence doesn't support a strong score, lower the score. Use weight "strong" only when the evidence is concrete (specific dates, named people, actual URLs); "medium" for inferential signals; "weak" for soft/hearsay signals.
+Convert it into the strict JSON schema below. Be faithful to the evidence — do NOT invent facts. If the evidence doesn't support a strong score, lower the score. Use weight "strong" only when the evidence is concrete (specific dates, named people, dollar amounts, discrete counts, primary URLs); "medium" for inferential signals; "weak" for soft/hearsay signals.
 
 Critical scoring rules:
 - A pillar with NO strong evidence cannot score above 70.
@@ -176,7 +305,20 @@ Critical scoring rules:
 - Score Fair on scope-to-comp coherence, not absolute compensation. A small honest stipend for a small honest scope is fair.
 - The overall score is the weighted mean of the four pillars (equal weight). Round to integer.
 
-Evidence source rules (HARD):
+Hiring-company rules (HARD):
+- The "company" field is the EMPLOYER, never the job board. The following
+  are FORBIDDEN as company values: LinkedIn, Indeed, Glassdoor, Wellfound,
+  AngelList, Otta, Welcome to the Jungle, ZipRecruiter, Monster, Dice,
+  BuiltIn, Hired, Remote.co, WeWorkRemotely, RemoteOK, Working Nomads,
+  Jobspresso, Lever, Greenhouse, Ashby, Workable, Workday, SmartRecruiters,
+  BambooHR, JazzHR, Recruitee, Teamtailor, Comeet, Breezy, Talentlyft,
+  "YC Work at a Startup".
+- If the dossier left "company" as one of those names (or as a board's
+  domain), it means the underlying employer was never identified. Replace
+  it with "Unidentified — listed on {board}" and cap the Real pillar
+  score at 35 (verdict "fail").
+
+Evidence source + style rules (HARD):
 - Every evidence item's "src" must be a real URL or a real domain
   (e.g. "linkedin.com/in/maya-chen", "sec.gov/cgi-bin/browse-edgar?action=...").
 - NEVER use placeholder sources: "Internal research", "company website",
@@ -184,9 +326,21 @@ Evidence source rules (HARD):
   If the evidence dossier used a placeholder, downgrade that evidence
   to weight "weak" and rewrite the src to "lighthouse/no-source" so it
   is obvious to the reader.
+- Every "text" must be ONE self-contained sentence with at least one
+  concrete element (YYYY-MM-DD date / dollar amount / discrete count /
+  named human / named investor / named product). Generic phrases like
+  "seems legitimate", "looks active", "appears credible" are FORBIDDEN —
+  if the dossier produced one, either rewrite it tighter or drop it.
+- Model tone on data.ts examples (terse newspaper voice, specifics-first):
+  ✓ "Domain orbit.work registered 2022-03-11, NS records stable for 38 months."
+  ✓ "Recruiter Maya Chen — LinkedIn tenure 19 months, two prior verified roles at Vercel."
+  ✓ "Cash band $165k–$215k sits at p62–p84 of Levels.fyi senior frontend, US-remote."
+  ✓ "47 GitHub repositories under orbit-labs, 11 with commits in the last 14 days."
+- Editorial voice: 2–3 sentences, measured, no second person, no
+  exclamation. Headlines ≤ 9 words, copy-desk style.
 - Comparables (the 3 similar roles) must be DIFFERENT companies, never
-  the target company. If the dossier suggested the target as a comparable,
-  drop it and substitute a plausible peer.
+  the target company AND never a job board. If the dossier suggested
+  the target as a comparable, drop it and substitute a plausible peer.
 
 The schema (return EXACTLY this shape, valid JSON, no markdown fence, no preamble):
 
@@ -394,6 +548,22 @@ export async function verifyPosting(url: string): Promise<VerifyResult> {
   // from the (possibly capped) pillar scores. The mean of the four pillars
   // is the source of truth — Stage 2's `score` is a hint we override.
   posting.pillars = normalizePillars(parsed.pillars);
+
+  // Safety net: if Gemini still named a job board as the employer (despite
+  // the prompt forbidding it), the underlying company is unknown — rewrite
+  // the field and cap the Real pillar so the overall score reflects that.
+  if (isJobBoardName(posting.company)) {
+    const board = posting.company.trim();
+    posting.company = `Unidentified — listed on ${board}`;
+    const real = posting.pillars.find((p) => p.name === "Real");
+    if (real) {
+      real.score = Math.min(real.score, 35);
+      real.verdict = "fail";
+      real.summary =
+        `Hiring company could not be identified — listing appears on ${board}, but no underlying employer was confirmed in the dossier.`;
+    }
+  }
+
   const pillarMean = Math.round(
     posting.pillars.reduce((s, p) => s + p.score, 0) / posting.pillars.length,
   );

@@ -172,12 +172,8 @@ export function ScanScreen() {
       <hr className="rule-hair" />
 
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 0,
-          borderBottom: "1px solid var(--ink-16)",
-        }}
+        className="lh-grid-4"
+        style={{ borderBottom: "1px solid var(--ink-16)" }}
       >
         {(["Real", "Active", "Fair", "Credible"] as const).map((p, i) => {
           const total = SCAN_STEPS.filter((s) => s.pillar === p).length;

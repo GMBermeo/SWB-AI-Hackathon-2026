@@ -72,7 +72,13 @@ export async function lookupCompanyForUrl(
 /**
  * Render a short context block that gets prepended to Gemini's Stage 1
  * prompt. Tells the model what Lighthouse already knows about this company
- * from prior inspections.
+ * from prior inspections so it can skip work it has already done.
+ *
+ * The block also classifies confidence ("HIGH" / "MEDIUM" / "LOW") based on
+ * mean score, inspection count, and recency. Gemini's Stage 1 prompt has
+ * an explicit rule that HIGH-confidence priors should be re-confirmed
+ * lightly rather than re-investigated from scratch — that's how Supabase
+ * priors translate into fewer grounded-search calls.
  */
 export function renderCompanyContext(c: CompanyRow): string {
   const lines: string[] = [
@@ -101,10 +107,45 @@ export function renderCompanyContext(c: CompanyRow): string {
       `Funding raised: $${(c.funding_total_usd / 1_000_000).toFixed(1)}M`,
     );
   if (c.notes) lines.push(`Notes: ${c.notes}`);
+
+  const confidence = priorConfidence(c);
+  lines.push("", `Prior confidence: ${confidence}.`);
+  if (confidence === "HIGH") {
+    lines.push(
+      "ACTION: This company is well-verified. Do NOT re-run WHOIS, EDGAR, Crunchbase, or GitHub searches. Re-confirm Real and Credible in 1-2 sentences each, citing the prior dossier. Spend your grounded-search budget on Active + Fair for THIS specific posting.",
+    );
+  } else if (confidence === "MEDIUM") {
+    lines.push(
+      "ACTION: Reuse prior Real/Credible facts as a starting point. Run only the queries that would refresh stale fields (last inspected > 30 days, or fields missing above). Active + Fair must still be fully investigated for THIS posting.",
+    );
+  } else {
+    lines.push(
+      "ACTION: Prior confidence is low — investigate all four pillars as usual, but use the facts above to skip identification searches (Real-1..4).",
+    );
+  }
   lines.push(
-    "Use this as a starting point — re-verify each fact via Google Search. If a prior claim now looks wrong, flag it in your evidence.",
+    "If a prior claim now looks wrong, flag it explicitly in your evidence.",
     "===================================",
     "",
   );
   return lines.join("\n");
+}
+
+/**
+ * Classify how much weight Gemini should give the prior dossier.
+ * HIGH   → strong historical mean, multiple inspections, recently re-checked.
+ * MEDIUM → real history but stale or thin.
+ * LOW    → one prior inspection or weak score.
+ */
+function priorConfidence(c: CompanyRow): "HIGH" | "MEDIUM" | "LOW" {
+  const mean = c.mean_score ?? c.last_score ?? 0;
+  const count = c.inspection_count ?? 0;
+  const ageDays = c.last_inspected_at
+    ? Math.floor(
+        (Date.now() - new Date(c.last_inspected_at).getTime()) / 86_400_000,
+      )
+    : Infinity;
+  if (mean >= 85 && count >= 3 && ageDays <= 30) return "HIGH";
+  if (mean >= 70 && count >= 2 && ageDays <= 90) return "MEDIUM";
+  return "LOW";
 }

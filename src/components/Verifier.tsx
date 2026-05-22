@@ -22,50 +22,14 @@ export function Verifier({
   };
 
   return (
-    <form
-      onSubmit={submit}
-      style={{
-        display: "flex",
-        gap: 0,
-        alignItems: "stretch",
-        borderTop: "1px solid var(--ink)",
-        borderBottom: "1px solid var(--ink)",
-      }}
-    >
+    <form onSubmit={submit} className="lh-verifier">
       <input
         ref={ref}
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="paste a job posting URL — LinkedIn, Indeed, careers page, recruiter DM…"
-        style={{
-          flex: 1,
-          border: 0,
-          background: "transparent",
-          padding: "22px 16px",
-          fontFamily: "var(--sans)",
-          fontSize: 17,
-          letterSpacing: "-0.005em",
-          color: "var(--ink)",
-          outline: "none",
-        }}
       />
-      <button
-        type="submit"
-        style={{
-          border: 0,
-          background: "var(--ink)",
-          color: "var(--cream)",
-          fontFamily: "var(--sans)",
-          fontWeight: 500,
-          fontSize: 14,
-          letterSpacing: "0.04em",
-          textTransform: "uppercase",
-          padding: "0 28px",
-          cursor: "pointer",
-        }}
-      >
-        Verify ↗
-      </button>
+      <button type="submit">Verify ↗</button>
     </form>
   );
 }

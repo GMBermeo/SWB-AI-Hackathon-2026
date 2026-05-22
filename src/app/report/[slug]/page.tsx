@@ -3,9 +3,28 @@ import { ReportScreen } from "@/components/ReportScreen";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { supabase, rowToPosting } from "@/lib/supabase";
+import { AUTHOR, SITE_NAME, siteUrl } from "@/lib/seo";
+import type { Posting } from "@/lib/types";
 
 export async function generateStaticParams() {
   return POSTINGS.map((p) => ({ slug: p.id }));
+}
+
+async function loadPosting(slug: string): Promise<Posting | undefined> {
+  const seed = POSTINGS.find((p) => p.id === slug);
+  if (seed) return seed;
+  try {
+    const sb = supabase();
+    const { data, error } = await sb
+      .from("inspections")
+      .select("*")
+      .eq("id", slug)
+      .single();
+    if (!error && data) return rowToPosting(data);
+  } catch {
+    // ignore — fall through to undefined
+  }
+  return undefined;
 }
 
 export async function generateMetadata({
@@ -14,33 +33,46 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  let posting = POSTINGS.find((p) => p.id === slug);
-
-  if (!posting) {
-    try {
-      const sb = supabase();
-      const { data, error } = await sb
-        .from("inspections")
-        .select("*")
-        .eq("id", slug)
-        .single();
-      if (!error && data) {
-        posting = rowToPosting(data);
-      }
-    } catch {
-      // ignore
-    }
-  }
+  const posting = await loadPosting(slug);
 
   if (!posting) {
     return {
-      title: "Report — Lighthouse",
+      title: "Report not found",
+      robots: { index: false, follow: false },
     };
   }
 
+  const title = `${posting.company} · ${posting.role}`;
+  const description = posting.editorial;
+  const canonical = `/report/${posting.id}`;
+
   return {
-    title: `${posting.company} · ${posting.role} — Lighthouse`,
-    description: posting.editorial,
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url: canonical,
+      siteName: SITE_NAME,
+      authors: [AUTHOR.name],
+      tags: [
+        posting.company,
+        posting.role,
+        posting.verdict,
+        "Lighthouse inspection",
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+    other: {
+      "lighthouse:verdict": posting.verdict,
+      "lighthouse:score": String(posting.score),
+    },
   };
 }
 
@@ -50,27 +82,64 @@ export default async function Page({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  let posting = POSTINGS.find((p) => p.id === slug);
-
-  if (!posting) {
-    try {
-      const sb = supabase();
-      const { data, error } = await sb
-        .from("inspections")
-        .select("*")
-        .eq("id", slug)
-        .single();
-      if (!error && data) {
-        posting = rowToPosting(data);
-      }
-    } catch {
-      // ignore
-    }
-  }
+  const posting = await loadPosting(slug);
 
   if (!posting) {
     notFound();
   }
 
-  return <ReportScreen posting={posting} />;
+  const base = siteUrl();
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: `${posting.company} · ${posting.role} — Lighthouse inspection`,
+    description: posting.editorial,
+    url: `${base}/report/${posting.id}`,
+    mainEntityOfPage: `${base}/report/${posting.id}`,
+    inLanguage: "en-US",
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: base,
+    },
+    author: { "@type": "Person", name: AUTHOR.name, url: AUTHOR.url },
+    keywords: [
+      posting.company,
+      posting.role,
+      posting.verdict,
+      "remote job verification",
+    ].join(", "),
+    about: {
+      "@type": "JobPosting",
+      title: posting.role,
+      hiringOrganization: {
+        "@type": "Organization",
+        name: posting.company,
+        sameAs: posting.url,
+      },
+      jobLocationType: "TELECOMMUTE",
+      employmentType: "FULL_TIME",
+      baseSalary: {
+        "@type": "MonetaryAmount",
+        currency: "USD",
+        value: {
+          "@type": "QuantitativeValue",
+          minValue: posting.compMin,
+          maxValue: posting.compMax,
+          unitText: "YEAR",
+        },
+      },
+      url: posting.url,
+    },
+  };
+
+  return (
+    <>
+      <ReportScreen posting={posting} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
+    </>
+  );
 }

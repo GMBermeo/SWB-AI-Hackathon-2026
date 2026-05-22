@@ -75,10 +75,8 @@ function EvidenceRow({ item }: { item: EvidenceItem }) {
     item.weight === "strong" ? "●●●" : item.weight === "medium" ? "●●○" : "●○○";
   return (
     <div
+      className="lh-split lh-split-evidence"
       style={{
-        display: "grid",
-        gridTemplateColumns: "46px 1fr 130px",
-        gap: 16,
         padding: "12px 0",
         borderTop: "1px solid var(--ink-08)",
       }}
@@ -123,7 +121,7 @@ function PillarBlock({ pillar, n }: { pillar: Pillar; n: number }) {
   const tag = pillar.verdict === "pass" ? "Pass" : pillar.verdict === "mixed" ? "Mixed" : "Fail";
   return (
     <section style={{ padding: "28px 0", borderTop: "1px solid var(--ink-16)" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 32 }}>
+      <div className="lh-split lh-split-pillar">
         <div>
           <div
             className="mono"
@@ -333,14 +331,7 @@ export function ReportScreen({
     <main style={{ paddingTop: 8, paddingBottom: 80 }}>
       <div style={{ marginTop: 8 }}>
         <hr className="rule-double" />
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            padding: "14px 0",
-          }}
-        >
+        <div className="lh-report-meta">
           <div className="byline">Inspection №{posting.id.toUpperCase()}</div>
           <div className="byline">{today} · Filed at PT 09:14</div>
           <div className="byline">v.2026.05 · Lighthouse Methodology</div>
@@ -349,14 +340,7 @@ export function ReportScreen({
       </div>
 
       <section style={{ padding: "32px 0 18px" }}>
-        <div
-          style={{
-            display: "flex",
-            gap: 16,
-            alignItems: "center",
-            marginBottom: 22,
-          }}
-        >
+        <div className="lh-verdict-row">
           <span className={"verdict-pill " + verdictClass}>
             <span className="dot" /> {posting.verdict}
           </span>
@@ -382,10 +366,8 @@ export function ReportScreen({
       <hr className="rule-hair" />
 
       <section
+        className="lh-split lh-split-report"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1.1fr 1fr",
-          gap: 56,
           padding: "32px 0 36px",
           alignItems: "start",
         }}
@@ -464,12 +446,8 @@ export function ReportScreen({
       <hr className="rule" />
 
       <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 2fr",
-          gap: 48,
-          padding: "36px 0",
-        }}
+        className="lh-split lh-split-editorial"
+        style={{ padding: "36px 0" }}
       >
         <div>
           <div className="kicker">Editorial summary</div>
@@ -493,14 +471,7 @@ export function ReportScreen({
       <hr className="rule" />
 
       <section style={{ paddingTop: 12 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            padding: "24px 0 4px",
-          }}
-        >
+        <div className="lh-row-wrap" style={{ padding: "24px 0 4px" }}>
           <h2 className="headline" style={{ margin: 0 }}>
             The four pillars
           </h2>
@@ -514,12 +485,8 @@ export function ReportScreen({
       <hr className="rule" />
 
       <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 0,
-          padding: "40px 0 0",
-        }}
+        className="lh-split lh-split-charts"
+        style={{ padding: "40px 0 0" }}
       >
         <div
           style={{ paddingRight: 40, borderRight: "1px solid var(--ink-16)" }}
@@ -615,14 +582,7 @@ export function ReportScreen({
       <hr className="rule" style={{ marginTop: 40 }} />
 
       <section style={{ padding: "40px 0" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: 22,
-          }}
-        >
+        <div className="lh-row-wrap" style={{ marginBottom: 22 }}>
           <div>
             <div className="kicker">§7 · Comparables</div>
             <h3
@@ -639,10 +599,8 @@ export function ReportScreen({
           <span className="byline">3 of 142 nearby matches</span>
         </div>
         <div
+          className="lh-grid-3"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 0,
             borderTop: "1px solid var(--ink)",
             borderBottom: "1px solid var(--ink)",
           }}
@@ -700,15 +658,7 @@ export function ReportScreen({
 
       <hr className="rule-hair" />
 
-      <section
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          padding: "32px 0 0",
-          gap: 32,
-        }}
-      >
+      <section className="lh-report-actions">
         <div style={{ maxWidth: "54ch" }}>
           <div className="byline">Audit · this report</div>
           <p

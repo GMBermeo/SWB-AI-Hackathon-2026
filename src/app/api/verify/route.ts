@@ -76,32 +76,40 @@ export async function POST(request: Request) {
   try {
     const sb = supabase();
     const { posting, citations, evidenceRaw } = result;
-    await sb.from("inspections").upsert(
-      {
-        url,
-        url_normalized: normalized,
-        company: posting.company,
-        role: posting.role,
-        location: posting.location,
-        comp_min: posting.compMin,
-        comp_max: posting.compMax,
-        equity: posting.equity,
-        posted: posting.posted,
-        summary: posting.summary,
-        score: posting.score,
-        verdict: posting.verdict,
-        headline: posting.headline,
-        editorial: posting.editorial,
-        pillars: posting.pillars,
-        activity: posting.activity,
-        comparables: posting.comparables,
-        citations,
-        evidence_raw: evidenceRaw,
-        verify_ms: verifyMs,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: "url_normalized" },
-    );
+    const { data: persisted } = await sb
+      .from("inspections")
+      .upsert(
+        {
+          url,
+          url_normalized: normalized,
+          company: posting.company,
+          role: posting.role,
+          location: posting.location,
+          comp_min: posting.compMin,
+          comp_max: posting.compMax,
+          equity: posting.equity,
+          posted: posting.posted,
+          summary: posting.summary,
+          score: posting.score,
+          verdict: posting.verdict,
+          headline: posting.headline,
+          editorial: posting.editorial,
+          pillars: posting.pillars,
+          activity: posting.activity,
+          comparables: posting.comparables,
+          citations,
+          evidence_raw: evidenceRaw,
+          verify_ms: verifyMs,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "url_normalized" }
+      )
+      .select("id")
+      .single();
+
+    if (persisted?.id) {
+      result.posting.id = persisted.id;
+    }
   } catch (e) {
     console.warn("Failed to persist inspection:", e);
   }

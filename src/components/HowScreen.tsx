@@ -61,14 +61,7 @@ export function HowScreen() {
       </h1>
       <hr className="rule" />
 
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1.6fr",
-          gap: 48,
-          padding: "40px 0 0",
-        }}
-      >
+      <section className="lh-split lh-split-how" style={{ padding: "40px 0 0" }}>
         <p className="byline">§0 · The premise</p>
         <p className="dek" style={{ margin: 0 }}>
           A trustworthy listing is one whose claims can be{" "}
@@ -85,10 +78,8 @@ export function HowScreen() {
       {SECTIONS.map((s) => (
         <section
           key={s.n}
+          className="lh-split lh-split-how"
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1.6fr",
-            gap: 48,
             padding: "36px 0",
             borderTop: "1px solid var(--ink-08)",
           }}
@@ -130,10 +121,8 @@ export function HowScreen() {
             {s.steps.map(([k, v]) => (
               <div
                 key={k}
+                className="lh-split lh-split-step"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "180px 1fr",
-                  gap: 24,
                   padding: "14px 0",
                   borderBottom: "1px solid var(--ink-08)",
                 }}
@@ -152,14 +141,7 @@ export function HowScreen() {
 
       <hr className="rule" style={{ margin: "24px 0 0" }} />
 
-      <section
-        style={{
-          padding: "40px 0 0",
-          display: "grid",
-          gridTemplateColumns: "1fr 1.6fr",
-          gap: 48,
-        }}
-      >
+      <section className="lh-split lh-split-how" style={{ padding: "40px 0 0" }}>
         <p className="byline">A note on bias</p>
         <p className="dek" style={{ margin: 0 }}>
           A 14-day-old domain is not automatically suspect; a 14-year-old
