@@ -91,3 +91,45 @@ export function rowToPosting(r: InspectionRow): Posting {
     comparables: r.comparables,
   };
 }
+
+export async function upsertInspection(
+  url: string,
+  urlNormalized: string,
+  posting: Posting,
+  citations: { uri: string; title?: string }[],
+  evidenceRaw: string,
+  verifyMs: number | null = null,
+) {
+  const sb = supabase();
+  return sb
+    .from("inspections")
+    .upsert(
+      {
+        url,
+        url_normalized: urlNormalized,
+        company: posting.company,
+        role: posting.role,
+        location: posting.location,
+        is_remote: posting.isRemote,
+        comp_min: posting.compMin,
+        comp_max: posting.compMax,
+        equity: posting.equity,
+        posted: posting.posted,
+        summary: posting.summary,
+        score: posting.score,
+        verdict: posting.verdict,
+        headline: posting.headline,
+        editorial: posting.editorial,
+        pillars: posting.pillars,
+        activity: posting.activity,
+        comparables: posting.comparables,
+        citations,
+        evidence_raw: evidenceRaw,
+        verify_ms: verifyMs,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "url_normalized" }
+    )
+    .select("id")
+    .single();
+}

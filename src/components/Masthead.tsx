@@ -6,6 +6,23 @@ import Link from "next/link";
 import { LighthouseMark } from "./LighthouseMark";
 import { companySlug } from "@/lib/companies";
 
+interface AutocompletePosting {
+  id: string;
+  company: string;
+  role: string;
+  location: string;
+  score: number;
+  verdict: "VERIFIED" | "INVESTIGATE" | "DECLINE";
+}
+
+interface AutocompleteCompany {
+  id: string;
+  slug: string;
+  display_name: string;
+  industry: string | null;
+  hq_city: string | null;
+}
+
 const ITEMS = [
   { href: "/library", label: "Library" },
   { href: "/companies", label: "Companies" },
@@ -20,15 +37,18 @@ export function Masthead({ edition }: { edition: string }) {
   const menuId = useId();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [results, setResults] = useState<{ postings: any[]; companies: any[] }>({ postings: [], companies: [] });
+  const [results, setResults] = useState<{ postings: AutocompletePosting[]; companies: AutocompleteCompany[] }>({ postings: [], companies: [] });
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setOpen(false);
-    setShowDropdown(false);
-    setSearchQuery("");
+    const t = setTimeout(() => {
+      setOpen(false);
+      setShowDropdown(false);
+      setSearchQuery("");
+    }, 0);
+    return () => clearTimeout(t);
   }, [pathname]);
 
   useEffect(() => {
@@ -54,9 +74,11 @@ export function Masthead({ edition }: { edition: string }) {
   // Fetch search results (debounced autocomplete)
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setResults({ postings: [], companies: [] });
-      setShowDropdown(false);
-      return;
+      const t = setTimeout(() => {
+        setResults({ postings: [], companies: [] });
+        setShowDropdown(false);
+      }, 0);
+      return () => clearTimeout(t);
     }
 
     const timer = setTimeout(async () => {
@@ -95,7 +117,10 @@ export function Masthead({ edition }: { edition: string }) {
         <input
           type="text"
           className="lh-search-input"
-          placeholder="Search jobs, companies..."
+          placeholder="Search jobs, companies…"
+          aria-label="Search jobs and companies"
+          name="q"
+          autoComplete="off"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => {
@@ -107,7 +132,7 @@ export function Masthead({ edition }: { edition: string }) {
       {showDropdown && (
         <div className="lh-search-dropdown" ref={isMobile ? dropdownRef : undefined}>
           {loading && (
-            <div className="lh-search-empty mono">Scanning records...</div>
+            <div className="lh-search-empty mono">Scanning records…</div>
           )}
 
           {!loading && !hasResults && (

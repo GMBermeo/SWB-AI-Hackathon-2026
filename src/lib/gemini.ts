@@ -42,7 +42,7 @@ const JOB_BOARDS = [
   "yc work at a startup", "y combinator", "work at a startup",
 ] as const;
 
-function isJobBoardName(name: string): boolean {
+export function isJobBoardName(name: string): boolean {
   if (!name) return false;
   const n = name.toLowerCase().trim().replace(/\.(com|io|co|net|org)$/i, "").trim();
   return JOB_BOARDS.some((b) => n === b || n.startsWith(b + " ") || n.endsWith(" " + b));
@@ -670,7 +670,7 @@ function clamp(n: number, lo: number, hi: number) {
  * Parse a comp string like "$175,000 – $280,000" or "$120k-$150k" into
  * [min, max] USD. Returns null if no numeric range could be extracted.
  */
-function extractCompBand(s: string): [number, number] | null {
+export function extractCompBand(s: string): [number, number] | null {
   if (!s) return null;
   const nums: number[] = [];
   const re = /\$?\s*([\d,]+(?:\.\d+)?)\s*([kKmM])?/g;
@@ -709,13 +709,13 @@ type RawPillar = {
 const FAKE_SOURCE_RE =
   /^(internal research|research|company website|posting|training data|knowledge|n\/?a|none|unknown|lighthouse(?!\/no-grounding|\/no-source))/i;
 
-function looksLikeUrl(src: string): boolean {
+export function looksLikeUrl(src: string): boolean {
   // Anything with a dot and at least one alpha character — covers
   // "linkedin.com/...", "sec.gov/edgar/..." but rejects "Internal".
   return /[a-z]\.[a-z]/i.test(src);
 }
 
-function normalizePillars(pillars: unknown): Posting["pillars"] {
+export function normalizePillars(pillars: unknown): Posting["pillars"] {
   const names = ["Real", "Active", "Fair", "Credible"] as const;
   const arr = Array.isArray(pillars) ? (pillars as RawPillar[]) : [];
   return names.map((n) => {

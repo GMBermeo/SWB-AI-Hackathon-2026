@@ -80,17 +80,4 @@ function prettify(slug: string): string {
   return slug.charAt(0).toUpperCase() + slug.slice(1);
 }
 
-function stripTags(html: string): string {
-  // Greenhouse stores HTML in `content`; we keep it readable for the
-  // posting card without bringing in a full sanitizer.
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+

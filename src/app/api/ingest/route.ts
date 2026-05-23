@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { fetchFromAll, type RawPosting } from "@/lib/sources";
 import { normalizeUrl } from "@/lib/normalize";
-import { supabase } from "@/lib/supabase";
+import { supabase, upsertInspection } from "@/lib/supabase";
 import { verifyPosting, type VerifyResult } from "@/lib/gemini";
+import { companySlug } from "@/lib/companies";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;          // hard ceiling on Vercel Hobby tier
@@ -151,30 +152,12 @@ async function handle(
 
           // Persist into inspections — the DB trigger will mark the matching
           // posting row 'verified' and back-link inspection_id.
-          await sb.from("inspections").upsert(
-            {
-              url: p.url,
-              url_normalized: p.url_normalized,
-              company: result.posting.company,
-              role: result.posting.role,
-              location: result.posting.location,
-              comp_min: result.posting.compMin,
-              comp_max: result.posting.compMax,
-              equity: result.posting.equity,
-              posted: result.posting.posted,
-              summary: result.posting.summary,
-              score: result.posting.score,
-              verdict: result.posting.verdict,
-              headline: result.posting.headline,
-              editorial: result.posting.editorial,
-              pillars: result.posting.pillars,
-              activity: result.posting.activity,
-              comparables: result.posting.comparables,
-              citations: result.citations,
-              evidence_raw: result.evidenceRaw,
-              created_at: new Date().toISOString(),
-            },
-            { onConflict: "url_normalized" },
+          await upsertInspection(
+            p.url,
+            p.url_normalized,
+            result.posting,
+            result.citations,
+            result.evidenceRaw,
           );
 
           totalVerified += 1;
@@ -243,17 +226,7 @@ function timeout<T>(ms: number): Promise<T> {
   );
 }
 
-/**
- * Slugify a company name the same way the SQL `company_slug()` function does
- * so the upserts converge on the same row.
- */
-function companySlug(raw: string): string {
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+
 
 /**
  * Roll up company-level signals from a batch of RawPostings. One row per

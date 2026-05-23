@@ -137,7 +137,11 @@ side of the labour market.
 
 ### Two data flows
 
-**A — Manual verification (foreground, user-driven):**
+Lighthouse splits verification and scraping into two distinct pipelines to balance background concurrency with low user-facing latency.
+
+#### Flow A — Manual Verification (User-Driven, Foregound)
+
+This pipeline processes job URLs submitted directly by seekers in the Lighthouse dashboard interface.
 
 ```
 URL paste  →  normalize  →  cache lookup (Supabase)
@@ -160,7 +164,23 @@ URL paste  →  normalize  →  cache lookup (Supabase)
                 └──────────────► return Posting + citations
 ```
 
-**B — Daily ingestion (background, scheduled):**
+##### Process Sequence
+1. **Submit & Sanitize**: User pastes a URL. Lighthouse trims the input, appends `https:` protocol if missing, strips 28 known tracking parameters (e.g., `utm_*`, `ref`), sorts query tags, and strips trailing slashes to generate a stable, canonical cache key (`url_normalized`).
+2. **Cache Inspection**: The server checks the `public.inspections` table for any row matches on `url_normalized`. 
+   * **Cache Hit**: If a verified inspection exists and was created within the last **7 days** (our `CACHE_TTL_MS` threshold), Lighthouse returns the cached report immediately (under **50ms**).
+   * **Cache Miss**: If no match exists or the cached report is stale (older than 7 days), it triggers a new live verification.
+3. **Stage 1 — Grounded Agentic Research**: Lighthouse invokes **Gemini 2.5 Flash** with Google Search grounding enabled. The model behaves as an investigative researcher fanning out queries (e.g., WHOIS registry checks, SEC corporate filings, LinkedIn profiles, Reddit discussion nodes, and Levels.fyi pay tables) to gather a rigorous fact sheet.
+   * **Rate-Limit Fallback**: If the grounded search quota is exhausted, Lighthouse falls back dynamically to ungrounded **Gemini 3.1 Flash-Lite / 2.5 Flash-Lite** models operating on frozen parametric knowledge to deliver advisory, ungrounded reports flagged in the UI as preliminary.
+4. **Stage 2 — Schema Compaction**: A second LLM pass coerces the raw facts compiled in Stage 1 into a strict, programmatic JSON schema mapped to our internal types.
+5. **Algorithmic Normalization & Clamping**: A backend normalization layer enforces strict scoring bounds (e.g., capping scores at 70 if no strong citations exist, capping at 75 if under 3 evidence items exist, and enforcing an instant cap of 35 if illegal pay/fee patterns are detected).
+6. **Relational Persistence**: The parsed result is written into the database using a centralized upsert helper in `supabase.ts`. Under-the-hood Postgres triggers calculate company aggregates and update trust cards.
+7. **Hydrated Delivery**: The client displays the formatted report containing the 4-pillar scores, recruiter health indicator, and peer comparable items.
+
+---
+
+#### Flow B — Daily Ingestion Scraper (Background, Scheduled)
+
+This pipeline runs silently on an automated schedule using Vercel Cron.
 
 ```
 04:00 ET  →  Vercel Cron  →  GET /api/ingest (Bearer CRON_SECRET)
@@ -179,6 +199,16 @@ URL paste  →  normalize  →  cache lookup (Supabase)
                                     ▼
                     log to ingestion_runs (source, counts, ms, error)
 ```
+
+##### Process Sequence
+1. **Trigger & Authorization**: Vercel triggers the `/api/ingest` handler daily at **04:00 AM Eastern Time**. Invocations must include an `Authorization: Bearer ${CRON_SECRET}` header to bypass security guards.
+2. **Registry Lookup**: The system fetches active scraper endpoints from `public.sources` (e.g., Job Bank Canada feed, WWR RSS boards).
+3. **Fanned Fetching & Deduplication**: For each adapter, the scraper fetches up to 5 of the freshest listings. URLs are normalized and upserted into `public.postings` with a default status of `'new'`. Existing matching records are preserved so the `first_seen_at` field remains accurate.
+4. **Inline Verification Pipeline**: The system scans `public.postings` for entries with status `'new'` and sequentially executes the Manual Verification Flow (A) in the background.
+   * **Resource Bounds**: To keep execution durations safely inside Vercel's server ceiling (60 seconds) and manage Gemini API quotas, ingestion limits verifications to a maximum of **2 parallel items** per cron run. The remaining backlog is processed during subsequent runs.
+5. **Audit Logging**: The run concludes by saving telemetry (durations, fetched counts, verify rates, and isolated adapter exceptions) inside the `public.ingestion_runs` table.
+
+---
 
 ---
 
@@ -314,190 +344,164 @@ overall       = round((Real + Active + Fair + Credible) / 4)
 3. Being small / unknown / bootstrapped is **not** a fail signal for Credible
    — score on whether the company does anything real, not on whether it is
    famous.
-4. Score Fair on **scope-to-comp coherence**, not absolute compensation.
+4. Score Fair on **scope-to-comp coherence**, not absolute com## Database model
 
-### Evidence weights
+We use **Supabase Postgres** with row-level security enabled on every public table. The database structure is a fully normalized relational model tied together by triggers and indices, optimized for rapid, consistent rollups and full data isolation.
 
-| Weight   | Indicator | When to use                                                                |
-| -------- | --------- | -------------------------------------------------------------------------- |
-| `strong` | `●●●`     | Concrete: specific dates, named people, real URLs you can click            |
-| `medium` | `●●○`     | Inferential: published reports, benchmarks, indirect public signal         |
-| `weak`   | `●○○`     | Soft / hearsay: forum posts, single-source claims, low-confidence signals  |
+### Active Relational Schema
 
-### Report anatomy
+The ledger runs on five core tables:
 
-A finished report contains, in order:
-
-- **Masthead** (Inspection №, date, methodology version)
-- **Posting card** — role, company, location, comp, equity, posted
-- **Verdict pill + numeric score + band**
-- **Editorial summary** — 2–3 sentences synthesized from the evidence below
-- **§1–§4 pillar blocks** — each with summary + evidence ledger (3–5 items)
-- **§5 Recruiter activity** — 12-week repost timeline, median response, ghost likelihood
-- **§6 Compensation** — offer band vs. market p25/p50/p75
-- **§7 Comparables** — three similar verified roles
-- **Audit footer** — `Generated by Lighthouse v.2026.05 · 17 sub-checks · 14 external sources · 2.9s wall time`
-
-See three full worked examples spanning VERIFIED / INVESTIGATE / DECLINE in
-[`src/lib/data.ts`](src/lib/data.ts).
+1. **`public.sources`** — Ingestion endpoints configuration.
+2. **`public.postings`** — Scraped job posting queue before verification.
+3. **`public.inspections`** — Completed audits containing scores, verdicts, and evidence lists.
+4. **`public.companies`** — Historical aggregate data compiled from inspections.
+5. **`public.ingestion_runs`** — Periodic scrape execution auditing.
 
 ---
 
-## Database model
+### Table Specifications
 
-We use **Supabase Postgres** with row-level security enabled on every public
-table. Two views of the schema are documented: the **current MVP table** and
-the **future-state normalized model**.
+#### 1. `public.sources`
+Stores configuration and rate-limiting limits for external job board adapters.
+```sql
+create table public.sources (
+  id                    uuid primary key default gen_random_uuid(),
+  slug                  text not null unique,
+  display_name          text not null,
+  kind                  text not null check (kind in ('api','rss','xml','html')),
+  base_url              text,
+  ingest_enabled        boolean not null default true,
+  fetch_limit           smallint not null default 5,
+  rate_limit_per_minute smallint not null default 30,
+  last_run_at           timestamptz,
+  last_ok_at            timestamptz,
+  notes                 text,
+  config                jsonb not null default '{}'::jsonb
+);
+```
 
-### Current MVP — `public.inspections`
+#### 2. `public.postings`
+Serves as the raw ingestion queue. Normalizes URL keys to avoid scraping duplicate opportunities.
+```sql
+create table public.postings (
+  id                 uuid primary key default gen_random_uuid(),
+  source_slug        text not null references public.sources(slug),
+  source_external_id text,
+  url                text not null,
+  url_normalized     text not null unique, -- Deduplication key
+  title              text not null,
+  company            text,
+  location           text,
+  description        text,
+  posted_at          timestamptz,
+  first_seen_at      timestamptz not null default now(),
+  last_seen_at       timestamptz not null default now(),
+  raw_payload        jsonb,
+  status             text not null default 'new' check (status in ('new','verifying','verified','failed')),
+  inspection_id      uuid references public.inspections(id),
+  last_attempt_at    timestamptz,
+  attempt_count      smallint not null default 0,
+  attempt_error      text
+);
+```
 
-Migration: [`supabase/migrations/0001_inspections.sql`](supabase/migrations/0001_inspections.sql).
-One row per verified URL. JSONB blobs for nested structures (pillars,
-evidence, activity, comparables, citations). Enough to drive the demo and
-validate the architecture.
-
+#### 3. `public.inspections`
+Our completed audit trail. JSONB sub-schemas store structured, nested evidence lists, comparables, and citations.
 ```sql
 create table public.inspections (
-  -- Identity
   id              uuid primary key default gen_random_uuid(),
+  company_id      uuid references public.companies(id),
   url             text not null,
-  url_normalized  text not null,           -- dedup key — see normalize.ts
-
-  -- Posting (extracted by Gemini)
+  url_normalized  text not null unique,
   company         text not null,
   role            text not null,
   location        text not null,
+  is_remote       boolean not null default true,
   comp_min        integer not null default 0,
   comp_max        integer not null default 0,
   equity          text not null default '—',
   posted          text not null default 'unknown',
   summary         text not null default '',
-
-  -- Verdict
   score           smallint not null check (score between 0 and 100),
-  verdict         text not null check (verdict in
-                    ('VERIFIED','INVESTIGATE','DECLINE')),
+  verdict         text not null check (verdict in ('VERIFIED','INVESTIGATE','DECLINE')),
   headline        text not null default '',
   editorial       text not null default '',
-
-  -- Nested structures (JSONB)
-  pillars         jsonb not null default '[]'::jsonb,
-  activity        jsonb not null default '{}'::jsonb,
-  comparables     jsonb not null default '[]'::jsonb,
-  citations       jsonb not null default '[]'::jsonb,
-
-  -- Audit
-  evidence_raw    text,                     -- raw Gemini Stage-1 dossier
+  pillars         jsonb not null default '[]'::jsonb,     -- 4-Pillar breakdown
+  activity        jsonb not null default '{}'::jsonb,     -- Recruiter activity indicators
+  comparables     jsonb not null default '[]'::jsonb,     -- 3 Peer opportunities
+  citations       jsonb not null default '[]'::jsonb,     -- Link list to grounding URLs
+  evidence_raw    text,
   verify_ms       integer,
   created_at      timestamptz not null default now()
 );
-
-create unique index inspections_url_normalized_key
-  on public.inspections (url_normalized);
-create index inspections_created_at_idx
-  on public.inspections (created_at desc);
-create index inspections_verdict_idx
-  on public.inspections (verdict);
-
-alter table public.inspections enable row level security;
-
--- The verification ledger is a public artifact.
-create policy "inspections are public"
-  on public.inspections for select
-  to anon, authenticated using (true);
-
--- /api/verify writes from a server-side context. For the MVP we permit
--- anonymous inserts via the publishable key; for production this becomes
--- service_role only (see RLS pattern below).
-create policy "anyone can record an inspection"
-  on public.inspections for insert
-  to anon, authenticated with check (true);
-create policy "anyone can refresh an inspection"
-  on public.inspections for update
-  to anon, authenticated using (true) with check (true);
 ```
 
-### JSONB sub-schemas
-
-```typescript
-interface Pillar {
-  name: "Real" | "Active" | "Fair" | "Credible";
-  score: number;            // 0–100
-  verdict: "pass" | "mixed" | "fail";
-  summary: string;
-  evidence: Evidence[];     // 3–5 items
-}
-
-interface Evidence {
-  weight: "strong" | "medium" | "weak";
-  text: string;
-  src: string;              // domain or "lighthouse/diff"
-}
-
-interface Activity {
-  reposts: number[];        // 12 weekly values (0|1)
-  label: string;
-  responseDays: number | null;
-  ghostScore: number;       // 0.0–1.0
-}
-
-interface Comparable {
-  co: string; role: string; comp: string; score: number;
-}
+#### 4. `public.companies`
+Tracks continuous company health indicators and founder matrices accumulated across independent verification cycles.
+```sql
+create table public.companies (
+  id                   uuid primary key default gen_random_uuid(),
+  slug                 text not null unique,
+  display_name         text not null,
+  primary_domain       text,
+  inspection_count     integer not null default 0,
+  mean_score           numeric(5,2),
+  last_score           smallint,
+  last_verdict         text check (last_verdict in ('VERIFIED','INVESTIGATE','DECLINE')),
+  last_inspected_at    timestamptz,
+  linkedin_url         text,
+  glassdoor_url        text,
+  crunchbase_url       text,
+  github_org           text,
+  founded_year         smallint,
+  hq_country           text,
+  employee_count_est   integer,
+  funding_total_usd    bigint,
+  notes                text,
+  created_at           timestamptz not null default now()
+);
 ```
 
-### Future-state normalized schema (V1.2+)
-
-When the ledger grows past ~10k rows, we split the JSONB blobs into proper
-relational tables so we can index, query, and back-fill efficiently.
-
-```
-companies        (id, slug, canonical_name, domain, founded_year, hq_country,
-                  verified_at, registry_refs jsonb)
-
-sources          (id, slug, kind ['api','rss','xml','html'], base_url,
-                  rate_limit_per_minute, ingest_enabled bool,
-                  last_run_at, last_ok_at, tos_url, contact_url)
-
-postings         (id, source_id FK, source_external_id, url,
-                  url_normalized unique, company_id FK nullable,
-                  role, location, comp_min, comp_max, equity, posted_at,
-                  first_seen_at, last_seen_at, summary, raw_payload jsonb,
-                  status ['new','verifying','verified','dead'])
-
-inspections      (id, posting_id FK, score, verdict, headline, editorial,
-                  ai_model, methodology_version, verified_at, verify_ms,
-                  evidence_raw_url -- offloaded to Storage)
-
-pillars          (id, inspection_id FK, name, score, verdict, summary)
-
-evidence         (id, pillar_id FK, weight, text, src_url, src_label, position)
-
-activity_signals (inspection_id FK, reposts smallint[], response_days numeric,
-                  ghost_score numeric, label text)
-
-comparables      (id, inspection_id FK, company_name, role, comp_label,
-                  score, position)
-
-citations        (id, inspection_id FK, uri, title)
-
-ingestion_runs   (id, source_id FK, started_at, finished_at,
-                  postings_seen int, postings_new int, status, error text)
+#### 5. `public.ingestion_runs`
+Maintains strict audits for background cron and manual ingestion processes.
+```sql
+create table public.ingestion_runs (
+  id              uuid primary key default gen_random_uuid(),
+  started_at      timestamptz not null default now(),
+  finished_at     timestamptz,
+  status          text not null default 'running' check (status in ('running','ok','partial','failed')),
+  trigger         text not null default 'cron' check (trigger in ('cron','manual')),
+  sources_summary jsonb not null default '{}'::jsonb,
+  total_seen      integer not null default 0,
+  total_new       integer not null default 0,
+  total_verified  integer not null default 0,
+  duration_ms     integer,
+  error           text
+);
 ```
 
-### ER diagram
+---
+
+### Database Triggers & Automations
+
+Lighthouse delegates transactional referential constraints directly to PostgreSQL to ensure atomic synchronization:
+
+1. **`inspections_upsert_company`**: 
+   * Runs `AFTER INSERT ON public.inspections`.
+   * Automatically computes the company slug and slugs matching prior domains.
+   * Inserts a record into `public.companies` or updates aggregates: incrementing `inspection_count`, averaging scores (`mean_score`), and recording the `last_verdict` and `last_inspected_at` fields.
+2. **`postings_link_on_inspection`**:
+   * Runs `AFTER INSERT ON public.inspections`.
+   * Automatically scans `public.postings` for unverified entries matching the inspection's canonical normalized URL.
+   * Links the entry with the newly generated `inspection_id` and marks its status as `verified`.
+### Relational ER Diagram
 
 ```mermaid
 erDiagram
-    COMPANIES ||--o{ POSTINGS         : "publishes"
-    SOURCES   ||--o{ POSTINGS         : "ingested-from"
-    POSTINGS  ||--|| INSPECTIONS      : "verified-as"
-    INSPECTIONS ||--o{ PILLARS        : "decomposes-into"
-    PILLARS    ||--o{ EVIDENCE        : "supports"
-    INSPECTIONS ||--o{ COMPARABLES    : "compares-to"
-    INSPECTIONS ||--o{ CITATIONS      : "cites"
-    INSPECTIONS ||--|| ACTIVITY_SIGNALS : "tracks"
-    SOURCES   ||--o{ INGESTION_RUNS   : "logs"
+    SOURCES ||--o{ POSTINGS         : "ingests"
+    POSTINGS |o--o| INSPECTIONS      : "verified as"
+    COMPANIES ||--o{ INSPECTIONS     : "accumulates history"
 ```
 
 ### RLS pattern (production)

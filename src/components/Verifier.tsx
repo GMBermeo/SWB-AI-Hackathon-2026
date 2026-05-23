@@ -28,6 +28,9 @@ export function Verifier({
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="paste a job posting URL — LinkedIn, Indeed, careers page, recruiter DM…"
+        aria-label="Job posting URL"
+        name="url"
+        autoComplete="off"
       />
       <button type="submit">Verify ↗</button>
     </form>

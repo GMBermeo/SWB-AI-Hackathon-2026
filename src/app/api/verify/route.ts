@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyPosting } from "@/lib/gemini";
 import { normalizeUrl } from "@/lib/normalize";
-import { supabase, rowToPosting, type InspectionRow } from "@/lib/supabase";
+import { supabase, rowToPosting, type InspectionRow, upsertInspection } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -74,39 +74,15 @@ export async function POST(request: Request) {
 
   // ── Persist (best-effort; failure here shouldn't fail the request) ────
   try {
-    const sb = supabase();
     const { posting, citations, evidenceRaw } = result;
-    const { data: persisted } = await sb
-      .from("inspections")
-      .upsert(
-        {
-          url,
-          url_normalized: normalized,
-          company: posting.company,
-          role: posting.role,
-          location: posting.location,
-          is_remote: posting.isRemote,
-          comp_min: posting.compMin,
-          comp_max: posting.compMax,
-          equity: posting.equity,
-          posted: posting.posted,
-          summary: posting.summary,
-          score: posting.score,
-          verdict: posting.verdict,
-          headline: posting.headline,
-          editorial: posting.editorial,
-          pillars: posting.pillars,
-          activity: posting.activity,
-          comparables: posting.comparables,
-          citations,
-          evidence_raw: evidenceRaw,
-          verify_ms: verifyMs,
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: "url_normalized" }
-      )
-      .select("id")
-      .single();
+    const { data: persisted } = await upsertInspection(
+      url,
+      normalized,
+      posting,
+      citations,
+      evidenceRaw,
+      verifyMs,
+    );
 
     if (persisted?.id) {
       result.posting.id = persisted.id;

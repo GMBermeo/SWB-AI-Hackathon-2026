@@ -30,9 +30,11 @@ function SearchScreen() {
 
   useEffect(() => {
     if (!query.trim()) {
-      setPostings([]);
-      setCompanies([]);
-      return;
+      const t = setTimeout(() => {
+        setPostings([]);
+        setCompanies([]);
+      }, 0);
+      return () => clearTimeout(t);
     }
 
     let active = true;
@@ -47,8 +49,12 @@ function SearchScreen() {
           setPostings(data.postings || []);
           setCompanies(data.companies || []);
         }
-      } catch (err: any) {
-        if (active) setError(err.message || "Failed to fetch search results.");
+      } catch (err: unknown) {
+        if (active) {
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch search results."
+          );
+        }
       } finally {
         if (active) setLoading(false);
       }
