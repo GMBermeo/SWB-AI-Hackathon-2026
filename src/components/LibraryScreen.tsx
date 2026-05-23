@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { POSTINGS, LIBRARY_EXTRA } from "@/lib/data";
+import { companySlug } from "@/lib/companies";
 import type { Posting, Verdict } from "@/lib/types";
 
 type Row = {
@@ -158,7 +160,19 @@ export function LibraryScreen() {
                 {p.source}
               </div>
               <div style={{ fontSize: 15, fontWeight: 500 }}>
-                {p.company || "—"}
+                {p.company ? (
+                  <Link
+                    href={`/companies/${companySlug(p.company)}`}
+                    style={{
+                      color: "inherit",
+                      textDecoration: "underline",
+                      textDecorationColor: "var(--ink-32)",
+                      textUnderlineOffset: 3,
+                    }}
+                  >
+                    {p.company}
+                  </Link>
+                ) : "—"}
               </div>
               <div style={{ fontSize: 14, color: "var(--ink-80)" }}>
                 {p.title}
@@ -220,7 +234,18 @@ export function LibraryScreen() {
             {String(i + 1).padStart(3, "0")}
           </div>
           <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: "-0.012em" }}>
-            {row.company}
+            <Link
+              href={`/companies/${companySlug(row.company)}`}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                color: "inherit",
+                textDecoration: "underline",
+                textDecorationColor: "var(--ink-32)",
+                textUnderlineOffset: 3,
+              }}
+            >
+              {row.company}
+            </Link>
           </div>
           <div style={{ fontSize: 15, color: "var(--ink-80)" }}>{row.role}</div>
           <div className="mono" style={{ fontSize: 11, color: "var(--ink-50)" }}>

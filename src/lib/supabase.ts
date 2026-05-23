@@ -50,6 +50,7 @@ export interface InspectionRow {
   company: string;
   role: string;
   location: string;
+  is_remote: boolean;
   comp_min: number;
   comp_max: number;
   equity: string;
@@ -75,6 +76,7 @@ export function rowToPosting(r: InspectionRow): Posting {
     company: r.company,
     role: r.role,
     location: r.location,
+    isRemote: r.is_remote ?? true,
     compMin: r.comp_min,
     compMax: r.comp_max,
     equity: r.equity,

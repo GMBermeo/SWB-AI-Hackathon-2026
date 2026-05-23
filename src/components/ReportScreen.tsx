@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { POSTINGS } from "@/lib/data";
+import { companySlug } from "@/lib/companies";
+import { ExternalLink, linkify, looksLikeUrl } from "@/lib/clickable";
 import type { Activity, Evidence as EvidenceItem, Pillar, Posting } from "@/lib/types";
 
 function ScoreDial({ score, verdict }: { score: number; verdict: Posting["verdict"] }) {
@@ -73,6 +76,7 @@ function ScoreDial({ score, verdict }: { score: number; verdict: Posting["verdic
 function EvidenceRow({ item }: { item: EvidenceItem }) {
   const weight =
     item.weight === "strong" ? "●●●" : item.weight === "medium" ? "●●○" : "●○○";
+  const srcIsLink = looksLikeUrl(item.src);
   return (
     <div
       className="lh-split lh-split-evidence"
@@ -99,14 +103,24 @@ function EvidenceRow({ item }: { item: EvidenceItem }) {
           textWrap: "pretty",
         }}
       >
-        {item.text}
+        {linkify(item.text)}
       </span>
-      <span
-        className="mono"
-        style={{ fontSize: 11, color: "var(--ink-50)", textAlign: "right" }}
-      >
-        ↗ {item.src}
-      </span>
+      {srcIsLink ? (
+        <ExternalLink
+          href={item.src}
+          className="mono"
+          style={{ fontSize: 11, color: "var(--ink-50)", textAlign: "right" }}
+        >
+          ↗ {item.src}
+        </ExternalLink>
+      ) : (
+        <span
+          className="mono"
+          style={{ fontSize: 11, color: "var(--ink-50)", textAlign: "right" }}
+        >
+          ↗ {item.src}
+        </span>
+      )}
     </div>
   );
 }
@@ -181,7 +195,7 @@ function PillarBlock({ pillar, n }: { pillar: Pillar; n: number }) {
               textWrap: "pretty",
             }}
           >
-            {pillar.summary}
+            {linkify(pillar.summary)}
           </p>
           <div className="byline" style={{ margin: "18px 0 6px" }}>
             Evidence ledger · {pillar.evidence.length} items
@@ -300,8 +314,10 @@ function CompBar({ posting }: { posting: Posting }) {
 
 export function ReportScreen({
   posting,
+  citations,
 }: {
   posting: Posting | null;
+  citations?: { uri: string; title?: string }[];
 }) {
   const router = useRouter();
   if (!posting) {
@@ -344,12 +360,17 @@ export function ReportScreen({
           <span className={"verdict-pill " + verdictClass}>
             <span className="dot" /> {posting.verdict}
           </span>
-          <span
+          <ExternalLink
+            href={posting.url}
             className="mono"
-            style={{ fontSize: 12, color: "var(--ink-50)" }}
+            style={{
+              fontSize: 12,
+              color: "var(--ink-50)",
+              wordBreak: "break-all",
+            }}
           >
             ↗ {posting.url}
-          </span>
+          </ExternalLink>
         </div>
         <h1
           className="display"
@@ -395,10 +416,29 @@ export function ReportScreen({
               letterSpacing: "-0.012em",
             }}
           >
-            at <strong style={{ color: "var(--ink)" }}>{posting.company}</strong>
+            at{" "}
+            <Link
+              href={`/companies/${companySlug(posting.company)}`}
+              style={{
+                color: "var(--ink)",
+                fontWeight: 600,
+                textDecoration: "underline",
+                textDecorationColor: "var(--ink-32)",
+                textUnderlineOffset: 3,
+              }}
+            >
+              {posting.company}
+            </Link>
             <span style={{ margin: "0 8px", color: "var(--ink-32)" }}>·</span>
             {posting.location}
           </p>
+          {posting.isRemote && (
+            <div style={{ marginBottom: 18 }}>
+              <span className="lh-remote-confirmed-mark">
+                ✓ Remote Confirmed · Verified telecommute structure
+              </span>
+            </div>
+          )}
           <p
             style={{
               margin: "0 0 22px",
@@ -409,7 +449,7 @@ export function ReportScreen({
               textWrap: "pretty",
             }}
           >
-            “{posting.summary}”
+            “{linkify(posting.summary)}”
           </p>
           <div style={{ display: "flex", gap: 30, flexWrap: "wrap" }}>
             {[
@@ -464,7 +504,7 @@ export function ReportScreen({
             color: "var(--ink)",
           }}
         >
-          {posting.editorial}
+          {linkify(posting.editorial)}
         </p>
       </section>
 
@@ -620,15 +660,20 @@ export function ReportScreen({
                   alignItems: "baseline",
                 }}
               >
-                <span
+                <Link
+                  href={`/companies/${companySlug(c.co)}`}
                   style={{
                     fontSize: 18,
                     fontWeight: 500,
                     letterSpacing: "-0.012em",
+                    color: "inherit",
+                    textDecoration: "underline",
+                    textDecorationColor: "var(--ink-32)",
+                    textUnderlineOffset: 3,
                   }}
                 >
                   {c.co}
-                </span>
+                </Link>
                 <span
                   className="mono"
                   style={{ fontSize: 18, color: "var(--trust)" }}
@@ -654,6 +699,75 @@ export function ReportScreen({
             </div>
           ))}
         </div>
+      </section>
+
+      <hr className="rule" />
+
+      <section style={{ padding: "32px 0" }}>
+        <div className="lh-row-wrap" style={{ marginBottom: 22 }}>
+          <div>
+            <div className="kicker">§8 · Sources &amp; references</div>
+            <h3
+              style={{
+                margin: "8px 0 0",
+                fontSize: 26,
+                fontWeight: 500,
+                letterSpacing: "-0.015em",
+              }}
+            >
+              Every link cited in this dossier
+            </h3>
+          </div>
+          <span className="byline">
+            {citations && citations.length > 0
+              ? `${citations.length} source${citations.length === 1 ? "" : "s"} from Gemini grounded search`
+              : "Inline evidence sources are listed under each pillar above"}
+          </span>
+        </div>
+
+        {citations && citations.length > 0 ? (
+          <ol
+            style={{
+              listStyle: "decimal",
+              paddingLeft: 24,
+              margin: 0,
+              columnGap: 32,
+              columnCount: 2,
+            }}
+          >
+            {citations.map((c, i) => (
+              <li
+                key={i}
+                style={{
+                  padding: "6px 0",
+                  breakInside: "avoid",
+                  fontSize: 13,
+                  color: "var(--ink-65)",
+                }}
+              >
+                <ExternalLink
+                  href={c.uri}
+                  className="mono"
+                  style={{
+                    color: "var(--ink-65)",
+                    wordBreak: "break-word",
+                  }}
+                  title={c.uri}
+                >
+                  {c.title || c.uri}
+                </ExternalLink>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p
+            className="byline"
+            style={{ color: "var(--ink-32)", margin: "8px 0 0" }}
+          >
+            No external citations on file for this demo posting — see the
+            pillar evidence rows above for inline source links.
+          </p>
+        )}
       </section>
 
       <hr className="rule-hair" />

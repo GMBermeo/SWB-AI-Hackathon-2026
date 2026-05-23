@@ -40,3 +40,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# local logs and system metadata
+*.log
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

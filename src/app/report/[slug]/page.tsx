@@ -10,9 +10,14 @@ export async function generateStaticParams() {
   return POSTINGS.map((p) => ({ slug: p.id }));
 }
 
-async function loadPosting(slug: string): Promise<Posting | undefined> {
+interface LoadedPosting {
+  posting: Posting;
+  citations: { uri: string; title?: string }[];
+}
+
+async function loadPosting(slug: string): Promise<LoadedPosting | undefined> {
   const seed = POSTINGS.find((p) => p.id === slug);
-  if (seed) return seed;
+  if (seed) return { posting: seed, citations: [] };
   try {
     const sb = supabase();
     const { data, error } = await sb
@@ -20,7 +25,12 @@ async function loadPosting(slug: string): Promise<Posting | undefined> {
       .select("*")
       .eq("id", slug)
       .single();
-    if (!error && data) return rowToPosting(data);
+    if (!error && data) {
+      return {
+        posting: rowToPosting(data),
+        citations: (data.citations || []) as { uri: string; title?: string }[],
+      };
+    }
   } catch {
     // ignore — fall through to undefined
   }
@@ -33,7 +43,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const posting = await loadPosting(slug);
+  const loaded = await loadPosting(slug);
+  const posting = loaded?.posting;
 
   if (!posting) {
     return {
@@ -82,11 +93,13 @@ export default async function Page({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const posting = await loadPosting(slug);
+  const loaded = await loadPosting(slug);
 
-  if (!posting) {
+  if (!loaded) {
     notFound();
   }
+
+  const { posting, citations } = loaded;
 
   const base = siteUrl();
   const articleJsonLd = {
@@ -135,7 +148,7 @@ export default async function Page({
 
   return (
     <>
-      <ReportScreen posting={posting} />
+      <ReportScreen posting={posting} citations={citations} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}

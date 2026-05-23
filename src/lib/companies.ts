@@ -18,8 +18,13 @@ export interface CompanyRow {
   github_org: string | null;
   founded_year: number | null;
   hq_country: string | null;
+  hq_city: string | null;
+  hq_region: string | null;
   employee_count_est: number | null;
   funding_total_usd: number | null;
+  industry: string | null;
+  glassdoor_rating: number | null;
+  glassdoor_refreshed_at: string | null;
   notes: string | null;
 }
 

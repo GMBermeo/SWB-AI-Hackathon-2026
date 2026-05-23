@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SCAN_STEPS, POSTINGS } from "@/lib/data";
 import type { Posting } from "@/lib/types";
+import { ExternalLink, looksLikeUrl } from "@/lib/clickable";
 
 export type ScanRequest =
   | { kind: "demo"; posting: Posting }
@@ -164,9 +165,24 @@ export function ScanScreen() {
       </h1>
       <p
         className="mono"
-        style={{ fontSize: 12, color: "var(--ink-50)", margin: "0 0 32px" }}
+        style={{
+          fontSize: 12,
+          color: "var(--ink-50)",
+          margin: "0 0 32px",
+          wordBreak: "break-all",
+        }}
       >
-        ↳ {displayUrl}
+        ↳{" "}
+        {looksLikeUrl(displayUrl) ? (
+          <ExternalLink
+            href={displayUrl}
+            style={{ color: "var(--ink-50)" }}
+          >
+            {displayUrl}
+          </ExternalLink>
+        ) : (
+          displayUrl
+        )}
       </p>
 
       <hr className="rule-hair" />

@@ -85,6 +85,7 @@ export async function POST(request: Request) {
           company: posting.company,
           role: posting.role,
           location: posting.location,
+          is_remote: posting.isRemote,
           comp_min: posting.compMin,
           comp_max: posting.compMax,
           equity: posting.equity,

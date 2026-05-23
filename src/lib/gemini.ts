@@ -348,6 +348,7 @@ The schema (return EXACTLY this shape, valid JSON, no markdown fence, no preambl
   "company": string,
   "role": string,
   "location": string,
+  "isRemote": boolean,          // true if the job is fully remote or remote-first; false if hybrid, onsite, or regional.
   "compMin": number,            // USD. If monthly, keep monthly value. If unknown, 0.
   "compMax": number,            // USD. 0 if unknown.
   "equity": string,             // "0.05 – 0.15%" or "undisclosed" or "—"
@@ -522,6 +523,7 @@ export async function verifyPosting(url: string): Promise<VerifyResult> {
     company: parsed.company || "Unknown",
     role: parsed.role || "Unknown role",
     location: parsed.location || "Remote",
+    isRemote: parsed.isRemote !== undefined ? Boolean(parsed.isRemote) : true,
     compMin: Number(parsed.compMin) || 0,
     compMax: Number(parsed.compMax) || 0,
     equity: parsed.equity || "—",

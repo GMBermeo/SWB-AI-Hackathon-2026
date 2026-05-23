@@ -1,23 +1,34 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useId, useState, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { LighthouseMark } from "./LighthouseMark";
+import { companySlug } from "@/lib/companies";
 
 const ITEMS = [
   { href: "/library", label: "Library" },
+  { href: "/companies", label: "Companies" },
   { href: "/how", label: "How it works" },
   { href: "/scan", label: "Verify" },
 ] as const;
 
 export function Masthead({ edition }: { edition: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const menuId = useId();
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [results, setResults] = useState<{ postings: any[]; companies: any[] }>({ postings: [], companies: [] });
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setOpen(false);
+    setShowDropdown(false);
+    setSearchQuery("");
   }, [pathname]);
 
   useEffect(() => {
@@ -28,6 +39,149 @@ export function Masthead({ edition }: { edition: string }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Fetch search results (debounced autocomplete)
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setResults({ postings: [], companies: [] });
+      setShowDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setResults(data);
+          setShowDropdown(true);
+        }
+      } catch (err) {
+        console.error("Autocomplete fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setShowDropdown(false);
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const hasResults = results.postings.length > 0 || results.companies.length > 0;
+
+  const renderSearchBox = (isMobile: boolean) => (
+    <div className="lh-search-box" ref={isMobile ? undefined : dropdownRef}>
+      <form onSubmit={handleSearchSubmit}>
+        <span className="lh-search-icon">⚲</span>
+        <input
+          type="text"
+          className="lh-search-input"
+          placeholder="Search jobs, companies..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => {
+            if (searchQuery.trim()) setShowDropdown(true);
+          }}
+        />
+      </form>
+
+      {showDropdown && (
+        <div className="lh-search-dropdown" ref={isMobile ? dropdownRef : undefined}>
+          {loading && (
+            <div className="lh-search-empty mono">Scanning records...</div>
+          )}
+
+          {!loading && !hasResults && (
+            <div className="lh-search-empty mono">No matches found</div>
+          )}
+
+          {!loading && hasResults && (
+            <>
+              {results.postings.length > 0 && (
+                <div className="lh-search-section">
+                  <div className="lh-search-section-title">Verified Job Postings</div>
+                  {results.postings.slice(0, 4).map((p) => {
+                    const isVerified = p.verdict === "VERIFIED";
+                    return (
+                      <Link
+                        key={p.id}
+                        href={`/report/${p.id}`}
+                        className="lh-search-item"
+                        onClick={() => setShowDropdown(false)}
+                      >
+                        <div className="lh-search-item-title">
+                          {p.role}
+                          <span
+                            className={`lh-search-item-badge ${
+                              isVerified ? "verified" : "investigate"
+                            }`}
+                          >
+                            {p.score}
+                          </span>
+                        </div>
+                        <div className="lh-search-item-subtitle">
+                          {p.company} · {p.location}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+
+              {results.companies.length > 0 && (
+                <div className="lh-search-section">
+                  <div className="lh-search-section-title">Companies</div>
+                  {results.companies.slice(0, 4).map((c) => (
+                    <Link
+                      key={c.slug || c.id}
+                      href={`/companies/${companySlug(c.display_name)}`}
+                      className="lh-search-item"
+                      onClick={() => setShowDropdown(false)}
+                    >
+                      <div className="lh-search-item-title">{c.display_name}</div>
+                      <div className="lh-search-item-subtitle">
+                        {c.industry || "General"} · {c.hq_city || "Remote"}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ padding: "8px 14px", background: "var(--cream-deep)", borderTop: "1px solid var(--ink-08)", textAlign: "center" }}>
+                <Link
+                  href={`/search?q=${encodeURIComponent(searchQuery)}`}
+                  className="mono"
+                  style={{ fontSize: 11, fontWeight: 500, color: "var(--ink)" }}
+                  onClick={() => setShowDropdown(false)}
+                >
+                  View all search results →
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -61,7 +215,12 @@ export function Masthead({ edition }: { edition: string }) {
           })}
         </nav>
 
-        <div className="edition">{edition}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div className="search-desktop-wrapper" style={{ display: "inline-block" }}>
+            {renderSearchBox(false)}
+          </div>
+          <div className="edition" style={{ flexShrink: 0 }}>{edition}</div>
+        </div>
 
         <button
           type="button"
@@ -85,7 +244,11 @@ export function Masthead({ edition }: { edition: string }) {
           aria-label="Site menu"
           hidden={!open}
         >
-          <nav aria-label="Mobile primary">
+          <div style={{ padding: "16px 20px 8px" }}>
+            {renderSearchBox(true)}
+          </div>
+
+          <nav aria-label="Mobile primary" style={{ marginTop: 12 }}>
             <ul className="mobile-menu-list">
               {ITEMS.map(({ href, label }) => {
                 const active = pathname === href;
@@ -120,3 +283,4 @@ export function Masthead({ edition }: { edition: string }) {
     </>
   );
 }
+

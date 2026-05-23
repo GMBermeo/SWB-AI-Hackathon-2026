@@ -38,6 +38,7 @@ export interface Posting {
   company: string;
   role: string;
   location: string;
+  isRemote: boolean;
   compMin: number;
   compMax: number;
   equity: string;
