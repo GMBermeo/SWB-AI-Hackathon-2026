@@ -745,13 +745,39 @@ The endpoint responds with a JSON summary — `status`, `totals.seen / new / ver
 
 ### Rate limits, retries, idempotency
 
-- Each source carries a `rate_limit_per_minute` field; we sleep between
-  fetches to respect it.
-- Verification is capped at **30 calls per run** to bound Gemini spend.
-- `postings.status` doubles as a retry queue: rows stuck in `verifying`
-  are reset by a recovery sweep at the start of the next run.
-- Insert/upsert keys are deterministic (`url_normalized`), so a re-run on
-  the same day is a no-op.
+- **Source Ingestion Limits**: Each source in `public.sources` carries a `rate_limit_per_minute` field; the background ingestion cron sleeps between fetches to respect this.
+- **Verification Cap**: Live cron-based verification is capped at **30 calls per run** to strictly bound daily Gemini token spend.
+- **Queued Retry Recovery**: `postings.status` doubles as a retry queue: rows stuck in `verifying` are reset by a recovery sweep at the start of the next run.
+- **Idempotent Ingestion**: Insert/upsert keys are deterministic (`url_normalized`), so a re-run of ingestion on the same day is a no-op.
+
+### Privacy-Preserving Client Rate Limiting
+
+To prevent users or malicious bots from exhausting Gemini API tokens by sending thousands of unique links or repeatedly forcing verifications, Lighthouse implements a **production-grade database-backed sliding-window rate limiter** on the `/api/verify` endpoint.
+
+#### Key Features:
+1. **Cache-First Bypass (Token Conservation)**: If a requested URL has already been verified and its cached result is valid (within the 7-day TTL), the request is served immediately from the database cache. **Cached requests completely bypass the rate limiter**, allowing infinite free reading of already-verified postings while conserving Gemini tokens.
+2. **Privacy-Preserving Hashing**: Client IP addresses are converted into secure SHA-256 hashes using a server-side cryptographic function before checking or inserting into the rate limit ledger. Plain text IP addresses are **never** stored in the database, ensuring compliance with PIPEDA, Loi 25, and GDPR.
+3. **Sliding-Window Audit Ledger**: Uses the `public.verify_rate_limits` database table. Whenever a cache-miss or forced verification occurs, the server counts the entries for the client's IP hash in the sliding window. If it exceeds the maximum threshold, the request is rejected with `429 Too Many Requests`.
+4. **Self-Pruning Lifecycle**: On every successful verification attempt, the rate limiter asynchronously prunes ledger rows older than 24 hours to keep the table size small and query latency under 2ms.
+5. **High-Availability (Fail-Open) Design**: If the rate-limiting database query encounters an unexpected error, the check fails-open, allowing legitimate users to proceed while logging the warning for server administrators.
+
+#### Database Schema (`public.verify_rate_limits`):
+```sql
+create table public.verify_rate_limits (
+  id         uuid primary key default gen_random_uuid(),
+  ip_hash    text not null,
+  created_at timestamptz not null default now()
+);
+
+create index verify_rate_limits_ip_hash_created_at_idx
+  on public.verify_rate_limits (ip_hash, created_at desc);
+```
+
+#### Configuration Environment Variables:
+These can be customized in `.env` or production environment settings:
+- `RATE_LIMIT_WINDOW_SEC`: Time window in seconds. Default: `600` (10 minutes).
+- `RATE_LIMIT_MAX_REQUESTS`: Maximum new verifications allowed per IP within the window. Default: `10`.
+
 
 ---
 
@@ -887,7 +913,7 @@ Run a verification (or return a cached one).
 | Max duration   | 60 seconds |
 | Cache TTL      | 7 days     |
 
-**Errors:** `400` (missing/malformed `url`), `500` (Gemini failure).
+**Errors:** `400` (missing/malformed `url`), `429` (rate limit exceeded), `500` (Gemini failure).
 
 ### `GET /api/library?limit=50`
 

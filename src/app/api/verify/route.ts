@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { verifyPosting } from "@/lib/gemini";
 import { normalizeUrl } from "@/lib/normalize";
 import { supabase, rowToPosting, type InspectionRow, upsertInspection } from "@/lib/supabase";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,7 +12,7 @@ export const maxDuration = 60;
 // week is wasted spend.
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let url: string;
   let force = false;
   try {
@@ -58,6 +59,23 @@ export async function POST(request: Request) {
     } catch {
       // Cache miss-on-error is fine; fall through to live verification.
     }
+  }
+
+  // ── Rate Limiting (only for cache misses or forced re-verifications) ───
+  const ip = request.ip || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+  const rateLimitResult = await checkRateLimit(ip);
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      {
+        error: `Rate limit exceeded. You can only verify up to ${rateLimitResult.max} new links every ${rateLimitResult.windowSec / 60} minutes.`,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimitResult.windowSec),
+        },
+      },
+    );
   }
 
   // ── Live verification ─────────────────────────────────────────────────
