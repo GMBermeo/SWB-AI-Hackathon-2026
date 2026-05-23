@@ -13,9 +13,10 @@ export const dynamic = "force-dynamic"; // never cache the cron response
 const TOTAL_BUDGET_MS = 55_000;
 // Per-source fetch limit per run.
 const PER_SOURCE_LIMIT = 5;
-// Maximum verifications attempted inline (each ~25s). Stops well short of
-// the wall-clock budget; the rest of the queue is processed on later runs.
-const MAX_INLINE_VERIFICATIONS = 2;
+// Maximum verifications attempted inline (each ~25s). Since we pre-filter
+// postings to strictly Canadian roles, daily volume is low, so we process
+// up to 10 new postings per run to ensure everything is verified.
+const MAX_INLINE_VERIFICATIONS = 10;
 // Bound any single Gemini call so a slow one can't eat the budget.
 const VERIFY_TIMEOUT_MS = 35_000;
 
