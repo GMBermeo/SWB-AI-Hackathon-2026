@@ -21,6 +21,7 @@ interface AutocompleteCompany {
   display_name: string;
   industry: string | null;
   hq_city: string | null;
+  inspection_count?: number;
 }
 
 const ITEMS = [
@@ -175,19 +176,37 @@ export function Masthead({ edition }: { edition: string }) {
               {results.companies.length > 0 && (
                 <div className="lh-search-section">
                   <div className="lh-search-section-title">Companies</div>
-                  {results.companies.slice(0, 4).map((c) => (
-                    <Link
-                      key={c.slug || c.id}
-                      href={`/companies/${companySlug(c.display_name)}`}
-                      className="lh-search-item"
-                      onClick={() => setShowDropdown(false)}
-                    >
-                      <div className="lh-search-item-title">{c.display_name}</div>
-                      <div className="lh-search-item-subtitle">
-                        {c.industry || "General"} · {c.hq_city || "Remote"}
-                      </div>
-                    </Link>
-                  ))}
+                  {results.companies.slice(0, 4).map((c) => {
+                    const isInspected = (c.inspection_count ?? 0) > 0;
+                    if (isInspected) {
+                      return (
+                        <Link
+                          key={c.slug || c.id}
+                          href={`/companies/${companySlug(c.display_name)}`}
+                          className="lh-search-item"
+                          onClick={() => setShowDropdown(false)}
+                        >
+                          <div className="lh-search-item-title">{c.display_name}</div>
+                          <div className="lh-search-item-subtitle">
+                            {c.industry || "General"} · {c.hq_city || "Remote"}
+                          </div>
+                        </Link>
+                      );
+                    } else {
+                      return (
+                        <div
+                          key={c.slug || c.id}
+                          className="lh-search-item"
+                          style={{ cursor: "default" }}
+                        >
+                          <div className="lh-search-item-title">{c.display_name}</div>
+                          <div className="lh-search-item-subtitle">
+                            {c.industry || "General"} · {c.hq_city || "Remote"} (Pending verification)
+                          </div>
+                        </div>
+                      );
+                    }
+                  })}
                 </div>
               )}
 

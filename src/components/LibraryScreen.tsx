@@ -138,67 +138,7 @@ export function LibraryScreen() {
         </button>
       </div>
 
-      {pending.length > 0 && (
-        <section style={{ marginTop: 26 }}>
-          <div
-            className="kicker"
-            style={{ marginBottom: 10, color: "var(--amber)" }}
-          >
-            Awaiting verification · ingested by the 04:00 ET cron
-          </div>
-          <div className="byline lh-pending-head">
-            <div>Source</div>
-            <div>Company</div>
-            <div>Role</div>
-            <div>Ingested</div>
-            <div style={{ textAlign: "right" }}>Status</div>
-            <div style={{ textAlign: "right" }}>Action</div>
-          </div>
-          {pending.map((p) => (
-            <div key={p.id} className="lh-pending-row">
-              <div className="mono" style={{ fontSize: 11, color: "var(--ink-50)" }}>
-                {p.source}
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>
-                {p.company ? (
-                  <Link
-                    href={`/companies/${companySlug(p.company)}`}
-                    style={{
-                      color: "inherit",
-                      textDecoration: "underline",
-                      textDecorationColor: "var(--ink-32)",
-                      textUnderlineOffset: 3,
-                    }}
-                  >
-                    {p.company}
-                  </Link>
-                ) : "—"}
-              </div>
-              <div style={{ fontSize: 14, color: "var(--ink-80)" }}>
-                {p.title}
-              </div>
-              <div className="mono" style={{ fontSize: 11, color: "var(--ink-50)" }}>
-                {relTime(p.firstSeenAt)}
-              </div>
-              <div
-                className="mono"
-                style={{ fontSize: 11, textAlign: "right", color: "var(--ink-50)" }}
-              >
-                {p.status}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => handleVerify(p.url)}
-                  style={{ fontSize: 11 }}
-                >
-                  Verify now →
-                </button>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
+
 
       <hr className="rule" style={{ marginTop: 28 }} />
 
@@ -277,8 +217,7 @@ export function LibraryScreen() {
       ))}
 
       <p className="byline" style={{ marginTop: 24, color: "var(--ink-32)" }}>
-        Showing {all.length} verified
-        {pending.length > 0 ? ` · ${pending.length} awaiting verification` : ""}.
+        Showing {all.length} verified.
         Click any verified row to open its report.
       </p>
     </main>

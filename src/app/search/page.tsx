@@ -16,6 +16,7 @@ interface CompanyItem {
   hq_country?: string;
   glassdoor_rating?: number;
   notes?: string;
+  inspection_count?: number;
 }
 
 function SearchScreen() {
@@ -234,41 +235,54 @@ function SearchScreen() {
               <p className="mono" style={{ color: "var(--ink-32)", fontSize: 13, padding: "12px 0" }}>No companies matched this query.</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {companies.map((c) => (
-                  <div
-                    key={c.id}
-                    style={{
-                      borderBottom: "1px solid var(--ink-08)",
-                      paddingBottom: 16,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => router.push(`/companies/${companySlug(c.display_name)}`)}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                      <Link
-                        href={`/companies/${companySlug(c.display_name)}`}
-                        style={{ fontSize: 17, fontWeight: 600, textDecoration: "none", color: "var(--ink)" }}
-                      >
-                        {highlight(c.display_name, query)}
-                      </Link>
-                      {c.glassdoor_rating != null && (
-                        <span className="mono" style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>
-                          ★ {Number(c.glassdoor_rating).toFixed(1)}
-                        </span>
+                {companies.map((c) => {
+                  const isInspected = (c.inspection_count ?? 0) > 0;
+                  return (
+                    <div
+                      key={c.id}
+                      style={{
+                        borderBottom: "1px solid var(--ink-08)",
+                        paddingBottom: 16,
+                        cursor: isInspected ? "pointer" : "default",
+                      }}
+                      onClick={() => {
+                        if (isInspected) {
+                          router.push(`/companies/${companySlug(c.display_name)}`);
+                        }
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                        {isInspected ? (
+                          <Link
+                            href={`/companies/${companySlug(c.display_name)}`}
+                            style={{ fontSize: 17, fontWeight: 600, textDecoration: "none", color: "var(--ink)" }}
+                          >
+                            {highlight(c.display_name, query)}
+                          </Link>
+                        ) : (
+                          <span style={{ fontSize: 17, fontWeight: 600, color: "var(--ink-50)" }}>
+                            {highlight(c.display_name, query)} <span style={{ fontSize: 11, fontWeight: 400, color: "var(--ink-32)", fontFamily: "var(--mono)", marginLeft: 6 }}>(Pending verification)</span>
+                          </span>
+                        )}
+                        {c.glassdoor_rating != null && (
+                          <span className="mono" style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>
+                            ★ {Number(c.glassdoor_rating).toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mono" style={{ fontSize: 11, color: "var(--ink-50)", marginTop: 4 }}>
+                        {c.industry ? highlight(c.industry, query) : "General Industry"} · {[c.hq_city, c.hq_region, c.hq_country].filter(Boolean).join(", ")}
+                      </div>
+
+                      {c.notes && (
+                        <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--ink-65)", lineClamp: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {highlight(c.notes, query)}
+                        </p>
                       )}
                     </div>
-
-                    <div className="mono" style={{ fontSize: 11, color: "var(--ink-50)", marginTop: 4 }}>
-                      {c.industry ? highlight(c.industry, query) : "General Industry"} · {[c.hq_city, c.hq_region, c.hq_country].filter(Boolean).join(", ")}
-                    </div>
-
-                    {c.notes && (
-                      <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--ink-65)", lineClamp: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {highlight(c.notes, query)}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

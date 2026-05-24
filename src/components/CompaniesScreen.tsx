@@ -192,22 +192,24 @@ export function CompaniesScreen() {
         </p>
       )}
 
-      {visible.map((c, i) => (
-        <Link
-          key={c.id}
-          href={`/companies/${c.slug}`}
-          style={{ textDecoration: "none", color: "inherit" }}
-        >
+      {visible.map((c, i) => {
+        const isInspected = (c.inspection_count ?? 0) > 0;
+        const rowContent = (
           <div
             className="lh-companies-row"
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLDivElement).style.background =
-                "var(--cream-deep)")
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLDivElement).style.background =
-                "transparent")
-            }
+            style={{ cursor: isInspected ? "pointer" : "default" }}
+            onMouseEnter={(e) => {
+              if (isInspected) {
+                ((e.currentTarget as HTMLDivElement).style.background =
+                  "var(--cream-deep)");
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (isInspected) {
+                ((e.currentTarget as HTMLDivElement).style.background =
+                  "transparent");
+              }
+            }}
           >
             <div
               className="mono"
@@ -295,11 +297,25 @@ export function CompaniesScreen() {
               )}
             </div>
           </div>
-        </Link>
-      ))}
+        );
+
+        if (isInspected) {
+          return (
+            <Link
+              key={c.id}
+              href={`/companies/${c.slug}`}
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              {rowContent}
+            </Link>
+          );
+        } else {
+          return <div key={c.id}>{rowContent}</div>;
+        }
+      })}
 
       <p className="byline" style={{ marginTop: 24, color: "var(--ink-32)" }}>
-        Showing {visible.length} of {companies.length} companies. Click any row
+        Showing {visible.length} of {companies.length} companies. Click any verified company row
         for the full dossier.
       </p>
     </main>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { POSTINGS } from "@/lib/data";
 import type { Posting } from "@/lib/types";
 import { Verifier } from "./Verifier";
@@ -81,6 +82,8 @@ export function HomeScreen() {
   };
 
   const [stats, setStats] = useState<StatsPayload | null>(null);
+  const [latestJobs, setLatestJobs] = useState<Posting[]>([]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -90,6 +93,19 @@ export function HomeScreen() {
         if (!cancelled && typeof json?.total === "number") setStats(json);
       } catch {
         /* fall back to placeholder dashes */
+      }
+    })();
+    (async () => {
+      try {
+        const res = await fetch("/api/library?limit=3");
+        const json = await res.json();
+        if (!cancelled && Array.isArray(json?.inspections) && json.inspections.length > 0) {
+          setLatestJobs(json.inspections);
+        } else if (!cancelled) {
+          setLatestJobs(POSTINGS);
+        }
+      } catch {
+        if (!cancelled) setLatestJobs(POSTINGS);
       }
     })();
     return () => {
@@ -136,15 +152,11 @@ export function HomeScreen() {
           }}
         >
           <span className="byline">Try one of today&apos;s:</span>
-          {POSTINGS.map((s) => (
-            <button
+          {latestJobs.map((s) => (
+            <Link
               key={s.id}
-              onClick={() => handleDemoPick(s)}
+              href={`/report/${s.id}`}
               style={{
-                background: "transparent",
-                border: 0,
-                padding: 0,
-                cursor: "pointer",
                 fontFamily: "var(--mono)",
                 fontSize: 12,
                 color: "var(--ink)",
@@ -155,8 +167,8 @@ export function HomeScreen() {
                 wordBreak: "break-all",
               }}
             >
-              {s.url.replace(/^https?:\/\//, "")}
-            </button>
+              {s.role}
+            </Link>
           ))}
         </div>
       </section>
