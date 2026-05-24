@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchFromAll, type RawPosting } from "@/lib/sources";
 import { normalizeUrl } from "@/lib/normalize";
-import { supabase, upsertInspection } from "@/lib/supabase";
-import { verifyPosting, type VerifyResult } from "@/lib/gemini";
+import { supabase } from "@/lib/supabase";
 import { companySlug } from "@/lib/companies";
 
 export const runtime = "nodejs";
@@ -119,62 +118,8 @@ async function handle(
     }
   }
 
-  // 5. Time-budgeted inline verification of the freshest unverified postings.
-  let totalVerified = 0;
-  const remaining = () => TOTAL_BUDGET_MS - (Date.now() - t0);
-
-  if (remaining() > VERIFY_TIMEOUT_MS) {
-    const { data: queue } = await sb
-      .from("postings")
-      .select("id, url, url_normalized")
-      .eq("status", "new")
-      .order("first_seen_at", { ascending: false })
-      .limit(MAX_INLINE_VERIFICATIONS);
-
-    if (queue && queue.length) {
-      for (const p of queue) {
-        if (remaining() < VERIFY_TIMEOUT_MS) break;
-
-        // Mark verifying so concurrent runs don't double-process.
-        await sb
-          .from("postings")
-          .update({
-            status: "verifying",
-            last_attempt_at: new Date().toISOString(),
-            attempt_count: 1,
-          })
-          .eq("id", p.id);
-
-        try {
-          const result = await Promise.race<VerifyResult>([
-            verifyPosting(p.url),
-            timeout<VerifyResult>(VERIFY_TIMEOUT_MS),
-          ]);
-
-          // Persist into inspections — the DB trigger will mark the matching
-          // posting row 'verified' and back-link inspection_id.
-          await upsertInspection(
-            p.url,
-            p.url_normalized,
-            result.posting,
-            result.citations,
-            result.evidenceRaw,
-          );
-
-          totalVerified += 1;
-        } catch (e) {
-          await sb
-            .from("postings")
-            .update({
-              status: "failed",
-              attempt_error:
-                e instanceof Error ? e.message.slice(0, 500) : String(e),
-            })
-            .eq("id", p.id);
-        }
-      }
-    }
-  }
+  // 5. Decoupled queue verification: now handled separately by the /api/verify-queue cron job.
+  const totalVerified = 0;
 
   // 6. Roll up the summary so the dashboard can read run history.
   const summary = sourceResults.reduce<Record<string, unknown>>((acc, sr) => {

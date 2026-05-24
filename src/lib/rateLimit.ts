@@ -68,14 +68,16 @@ export async function checkRateLimit(ip: string): Promise<RateLimitResult> {
     sb.from("verify_rate_limits")
       .delete()
       .lt("created_at", pruneCutoff)
-      .then(({ error: deleteError }) => {
-        if (deleteError) {
-          console.warn("Failed to prune old rate limit logs:", deleteError);
+      .then(
+        ({ error: deleteError }) => {
+          if (deleteError) {
+            console.warn("Failed to prune old rate limit logs:", deleteError);
+          }
+        },
+        (err) => {
+          console.warn("Error pruning old rate limit logs:", err);
         }
-      })
-      .catch((err) => {
-        console.warn("Error pruning old rate limit logs:", err);
-      });
+      );
 
     return {
       allowed: true,

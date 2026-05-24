@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Rate Limiting (only for cache misses or forced re-verifications) ───
-  const ip = request.ip || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+  const ip = (request as any).ip || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
   const rateLimitResult = await checkRateLimit(ip);
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
@@ -90,10 +90,11 @@ export async function POST(request: NextRequest) {
   }
   const verifyMs = Date.now() - t0;
 
-  // ── Persist (best-effort; failure here shouldn't fail the request) ────
+  // ── Persist (verify and surface issues) ─────────────────────────
+  let persistedId: string | null = null;
   try {
     const { posting, citations, evidenceRaw } = result;
-    const { data: persisted } = await upsertInspection(
+    const { data: persisted, error: persistError } = await upsertInspection(
       url,
       normalized,
       posting,
@@ -102,12 +103,30 @@ export async function POST(request: NextRequest) {
       verifyMs,
     );
 
-    if (persisted?.id) {
-      result.posting.id = persisted.id;
+    if (persistError) {
+      console.error("Supabase upsert error:", persistError);
+      return NextResponse.json(
+        { error: `Verification succeeded but could not be saved: ${persistError.message}` },
+        { status: 500 },
+      );
     }
+    persistedId = persisted?.id ?? null;
   } catch (e) {
-    console.warn("Failed to persist inspection:", e);
+    console.error("Failed to persist inspection:", e);
+    return NextResponse.json(
+      { error: "Verification succeeded but could not be saved. Check Supabase credentials and RLS policies." },
+      { status: 500 },
+    );
   }
+
+  if (!persistedId) {
+    return NextResponse.json(
+      { error: "Inspection was not assigned a database ID. The upsert returned no row." },
+      { status: 500 },
+    );
+  }
+
+  result.posting.id = persistedId;
 
   return NextResponse.json({
     posting: result.posting,

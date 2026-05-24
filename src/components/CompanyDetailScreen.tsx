@@ -166,7 +166,6 @@ export function CompanyDetailScreen({ slug }: { slug: string }) {
 
   return (
     <main style={{ paddingTop: 16, paddingBottom: 96 }}>
-      <hr className="rule-double" />
       <div className="lh-report-meta">
         <div className="byline">Trust card · {c.slug}</div>
         <div className="byline">
@@ -236,8 +235,6 @@ export function CompanyDetailScreen({ slug }: { slug: string }) {
           >
             Everything Lighthouse knows
           </h2>
-
-          <Field label="Slug" value={c.slug} />
           <Field
             label="Primary domain"
             value={c.primary_domain}
@@ -273,21 +270,21 @@ export function CompanyDetailScreen({ slug }: { slug: string }) {
             value={
               c.glassdoor_rating != null
                 ? (
-                    <>
-                      {c.glassdoor_rating} / 5
-                      {c.glassdoor_refreshed_at && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "var(--ink-32)",
-                            marginLeft: 8,
-                          }}
-                        >
-                          (refreshed {new Date(c.glassdoor_refreshed_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })})
-                        </span>
-                      )}
-                    </>
-                  )
+                  <>
+                    {c.glassdoor_rating} / 5
+                    {c.glassdoor_refreshed_at && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "var(--ink-32)",
+                          marginLeft: 8,
+                        }}
+                      >
+                        (refreshed {new Date(c.glassdoor_refreshed_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })})
+                      </span>
+                    )}
+                  </>
+                )
                 : null
             }
           />
@@ -475,7 +472,7 @@ export function CompanyDetailScreen({ slug }: { slug: string }) {
       <hr className="rule" />
 
       <section style={{ padding: "32px 0" }}>
-        <div className="lh-row-wrap" style={{ marginBottom: 20 }}>
+        {insp.length !== 0 && (<div className="lh-row-wrap" style={{ marginBottom: 20 }}>
           <div>
             <div className="kicker">Inspection history</div>
             <h2
@@ -486,12 +483,11 @@ export function CompanyDetailScreen({ slug }: { slug: string }) {
                 letterSpacing: "-0.015em",
               }}
             >
-              {insp.length === 0
-                ? "No inspections on record yet"
-                : `${insp.length} inspection${insp.length === 1 ? "" : "s"} on file`}
+              {insp.length} inspection{insp.length === 1 ? "" : "s"} on file
             </h2>
           </div>
-        </div>
+        </div>)}
+
 
         {insp.map((i) => (
           <article
