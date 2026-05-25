@@ -303,9 +303,9 @@ function CompBar({ posting }: { posting: Posting }) {
         }}
       >
         <span>{fmt(low)}</span>
-        <span>p25 · {fmt(market.p25)}</span>
+        <span className="comp-bar-label-hide-mobile">p25 · {fmt(market.p25)}</span>
         <span style={{ color: "var(--ink)" }}>p50 · {fmt(market.p50)}</span>
-        <span>p75 · {fmt(market.p75)}</span>
+        <span className="comp-bar-label-hide-mobile">p75 · {fmt(market.p75)}</span>
         <span>{fmt(high)}</span>
       </div>
     </div>
@@ -322,11 +322,28 @@ export function ReportScreen({
   const router = useRouter();
   if (!posting) {
     return (
-      <main style={{ padding: "120px 0", textAlign: "center" }}>
-        <p className="dek">No report.</p>
-        <button className="btn btn-sm" onClick={() => router.push("/")}>
-          Back
-        </button>
+      <main id="main" style={{ padding: "80px 0", textAlign: "center" }}>
+        <div className="kicker" style={{ color: "var(--amber)" }}>§ Report Not Found</div>
+        <h1 className="headline" style={{ marginTop: 8, marginBottom: 16 }}>
+          Inspection report missing.
+        </h1>
+        <p className="dek" style={{ maxWidth: "48ch", margin: "0 auto", color: "var(--ink-65)" }}>
+          The inspection dossier you are attempting to retrieve does not exist in our record archives. You can initiate a new grounded-search verification from the homepage.
+        </p>
+        <div style={{ marginTop: 28, display: "flex", gap: 12, justifyContent: "center" }}>
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => router.push("/")}
+          >
+            ← Back to Home
+          </button>
+          <button
+            className="btn btn-sm"
+            onClick={() => router.push("/library")}
+          >
+            Library Index →
+          </button>
+        </div>
       </main>
     );
   }
@@ -344,7 +361,7 @@ export function ReportScreen({
   });
 
   return (
-    <main style={{ paddingTop: 8, paddingBottom: 80 }}>
+    <main id="main" style={{ paddingTop: 8, paddingBottom: 80 }}>
       <div style={{ marginTop: 8 }}>
         <hr className="rule-double" />
         <div className="lh-report-meta">

@@ -47,7 +47,7 @@ const SECTIONS = [
 
 export function HowScreen() {
   return (
-    <main style={{ paddingTop: 32, paddingBottom: 96 }}>
+    <main id="main" style={{ paddingTop: 32, paddingBottom: 96 }}>
       <div className="kicker">Methodology</div>
       <h1
         className="display"

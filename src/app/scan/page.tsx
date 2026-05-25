@@ -31,7 +31,7 @@ export default function Page() {
   return (
     <Suspense
       fallback={
-        <main style={{ padding: "120px 0", textAlign: "center" }}>
+        <main id="main" style={{ padding: "120px 0", textAlign: "center" }}>
           <p className="dek">Loading scanner...</p>
         </main>
       }

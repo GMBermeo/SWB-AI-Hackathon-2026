@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { CompanyRow } from "@/lib/companies";
 import type { Posting, Verdict } from "@/lib/types";
-import { ExternalLink, linkify, looksLikeUrl } from "@/lib/clickable";
+import { ExternalLink, linkify } from "@/lib/clickable";
 
 interface CompanyInspection extends Posting {
   createdAt: string;
@@ -125,25 +125,59 @@ export function CompanyDetailScreen({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <main style={{ padding: "80px 0", textAlign: "center" }}>
-        <p className="dek">Loading dossier…</p>
+      <main id="main" style={{ paddingTop: 16, paddingBottom: 96 }} className="fade-in">
+        <div className="lh-report-meta" style={{ borderBottom: "1px solid var(--ink-16)", paddingBottom: 14 }}>
+          <div className="skeleton" style={{ width: "120px", height: "11px" }} />
+          <div className="skeleton" style={{ width: "160px", height: "11px" }} />
+          <div className="skeleton" style={{ width: "100px", height: "11px" }} />
+        </div>
+        
+        <section style={{ padding: "28px 0 20px" }}>
+          <div className="skeleton" style={{ width: "140px", height: "24px", marginBottom: 12 }} />
+          <div className="skeleton" style={{ width: "60%", height: "48px" }} />
+        </section>
+
+        <hr className="rule-hair" />
+
+        <section className="lh-split lh-split-report" style={{ padding: "32px 0" }}>
+          <div>
+            <div className="skeleton" style={{ width: "120px", height: "14px", marginBottom: 18 }} />
+            <div className="skeleton" style={{ width: "100%", height: "220px" }} />
+          </div>
+          <div>
+            <div className="skeleton" style={{ width: "100px", height: "14px", marginBottom: 18 }} />
+            <div className="skeleton" style={{ width: "120px", height: "96px", marginBottom: 12 }} />
+            <div className="skeleton" style={{ width: "180px", height: "11px" }} />
+          </div>
+        </section>
       </main>
     );
   }
 
   if (error || !data) {
     return (
-      <main style={{ padding: "80px 0", textAlign: "center" }}>
-        <p className="dek" style={{ color: "var(--amber)" }}>
-          {error || "Company not found."}
+      <main id="main" style={{ padding: "80px 0", textAlign: "center" }}>
+        <div className="kicker" style={{ color: "var(--amber)" }}>§ Audit Error</div>
+        <h1 className="headline" style={{ marginTop: 8, marginBottom: 16 }}>
+          Dossier retrieval failed.
+        </h1>
+        <p className="dek" style={{ maxWidth: "48ch", margin: "0 auto", color: "var(--ink-65)" }}>
+          {error || "The company dossier you are looking for does not exist or has not yet been indexed by Lighthouse's verification ledger."}
         </p>
-        <button
-          className="btn btn-sm"
-          onClick={() => router.push("/companies")}
-          style={{ marginTop: 16 }}
-        >
-          ← All companies
-        </button>
+        <div style={{ marginTop: 28, display: "flex", gap: 12, justifyContent: "center" }}>
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => router.push("/companies")}
+          >
+            ← All companies
+          </button>
+          <button
+            className="btn btn-sm"
+            onClick={() => router.push("/")}
+          >
+            ↗ Verify a job
+          </button>
+        </div>
       </main>
     );
   }
@@ -165,7 +199,7 @@ export function CompanyDetailScreen({ slug }: { slug: string }) {
           : "var(--ink-50)";
 
   return (
-    <main style={{ paddingTop: 16, paddingBottom: 96 }}>
+    <main id="main" style={{ paddingTop: 16, paddingBottom: 96 }}>
       <div className="lh-report-meta">
         <div className="byline">Trust card · {c.slug}</div>
         <div className="byline">

@@ -142,7 +142,7 @@ export function ScanScreen() {
           }
 
           return json.posting as Posting;
-        } catch (e: any) {
+        } catch (e: unknown) {
           if (aborted) throw new Error("Verification aborted");
 
           const msg = e instanceof Error ? e.message : String(e);
@@ -195,11 +195,28 @@ export function ScanScreen() {
 
   if (!request) {
     return (
-      <main style={{ padding: "120px 0", textAlign: "center" }}>
-        <p className="dek">No posting selected.</p>
-        <button className="btn btn-sm" onClick={() => router.push("/")}>
-          Back
-        </button>
+      <main id="main" style={{ padding: "80px 0", textAlign: "center" }}>
+        <div className="kicker" style={{ color: "var(--amber)" }}>§ Verification Halted</div>
+        <h1 className="headline" style={{ marginTop: 8, marginBottom: 16 }}>
+          No posting selected.
+        </h1>
+        <p className="dek" style={{ maxWidth: "48ch", margin: "0 auto", color: "var(--ink-65)" }}>
+          You have arrived at the verifier without selecting a job posting to inspect. Paste a remote job URL on the homepage to perform a deep grounded-search audit.
+        </p>
+        <div style={{ marginTop: 28, display: "flex", gap: 12, justifyContent: "center" }}>
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => router.push("/")}
+          >
+            ← Go to Homepage
+          </button>
+          <button
+            className="btn btn-sm"
+            onClick={() => router.push("/library")}
+          >
+            Library →
+          </button>
+        </div>
       </main>
     );
   }
@@ -220,7 +237,7 @@ export function ScanScreen() {
   };
 
   return (
-    <main style={{ paddingTop: 32, paddingBottom: 96 }}>
+    <main id="main" style={{ paddingTop: 32, paddingBottom: 96 }}>
       <div className="kicker">
         {request.kind === "live"
           ? "Live inspection · Gemini grounded search"

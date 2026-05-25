@@ -77,9 +77,6 @@ export function HomeScreen() {
     }
   };
 
-  const handleDemoPick = (p: Posting) => {
-    router.push(`/scan?demo=${p.id}`);
-  };
 
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [latestJobs, setLatestJobs] = useState<Posting[]>([]);
@@ -114,7 +111,7 @@ export function HomeScreen() {
   }, []);
   const statsRows = buildStats(stats);
   return (
-    <main style={{ paddingTop: 8, paddingBottom: 96 }}>
+    <main id="main" style={{ paddingTop: 8, paddingBottom: 96 }}>
       <section className="lh-hero">
         <div>
           <div className="kicker" style={{ marginBottom: 18 }}>

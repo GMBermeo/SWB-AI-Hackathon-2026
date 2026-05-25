@@ -107,7 +107,7 @@ function SearchScreen() {
   const hasResults = postings.length > 0 || companies.length > 0;
 
   return (
-    <main style={{ paddingTop: 32, paddingBottom: 96 }}>
+    <main id="main" style={{ paddingTop: 32, paddingBottom: 96 }}>
       <div className="lh-library-head" style={{ marginBottom: 32 }}>
         <div>
           <div className="kicker">Search Results · ledger query</div>

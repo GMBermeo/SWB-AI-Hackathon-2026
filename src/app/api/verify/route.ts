@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   let force = false;
   try {
     const body = await request.json();
-    url = String(body?.url || "").trim();
+    url = String(body?.url ?? "").trim();
     force = Boolean(body?.force);
   } catch {
     return NextResponse.json(
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         if (age < CACHE_TTL_MS) {
           return NextResponse.json({
             posting: rowToPosting(cached),
-            citations: cached.citations || [],
+            citations: cached.citations ?? [],
             cached: true,
             verifiedAt: cached.created_at,
           });
@@ -160,9 +160,9 @@ export async function POST(request: NextRequest) {
 
     if (status === "failed") {
       // If it failed already and has exhausted attempts (max 2), return the error
-      if ((existingPosting.attempt_count || 0) >= 2) {
+      if ((existingPosting.attempt_count ?? 0) >= 2) {
         return NextResponse.json(
-          { error: `Verification failed: ${existingPosting.attempt_error || "Unknown error during background verification."}` },
+          { error: `Verification failed: ${existingPosting.attempt_error ?? "Unknown error during background verification."}` },
           { status: 500 },
         );
       }
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
 
     if (isStuck) {
       // If it was stuck and has exhausted attempts, return a timeout error
-      if ((existingPosting.attempt_count || 0) >= 2) {
+      if ((existingPosting.attempt_count ?? 0) >= 2) {
         return NextResponse.json(
           { error: "Verification took too long and timed out. Please check back later." },
           { status: 504 },
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Rate Limiting (only for cache misses or forced re-verifications) ───
-  const ip = request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+  const ip = request.headers.get("x-real-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "127.0.0.1";
   const rateLimitResult = await checkRateLimit(ip);
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
 
   // ── Register/Update Posting Status in DB ──────────────────────────────
   let postingId = existingPosting?.id;
-  const nextAttempt = (existingPosting?.attempt_count || 0) + 1;
+  const nextAttempt = (existingPosting?.attempt_count ?? 0) + 1;
   try {
     if (!postingId) {
       const sourceSlug = getSourceSlug(url);

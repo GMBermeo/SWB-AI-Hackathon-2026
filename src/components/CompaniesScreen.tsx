@@ -86,7 +86,7 @@ export function CompaniesScreen() {
   }, [companies, query, sort]);
 
   return (
-    <main style={{ paddingTop: 32, paddingBottom: 96 }}>
+    <main id="main" style={{ paddingTop: 32, paddingBottom: 96 }}>
       <div className="lh-library-head">
         <div>
           <div className="kicker">Companies · the trust card index</div>
@@ -135,7 +135,7 @@ export function CompaniesScreen() {
             outline: "none",
           }}
         />
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }} role="group" aria-label="Sort companies by">
           {(
             [
               ["recent", "Recent"],
@@ -147,15 +147,9 @@ export function CompaniesScreen() {
             <button
               key={k}
               onClick={() => setSort(k)}
-              className="byline"
-              style={{
-                cursor: "pointer",
-                background: sort === k ? "var(--ink)" : "transparent",
-                color: sort === k ? "var(--cream)" : "var(--ink-50)",
-                border: "1px solid var(--ink-16)",
-                padding: "6px 10px",
-                letterSpacing: "0.08em",
-              }}
+              className={`lh-sort-btn ${sort === k ? "active" : ""}`}
+              aria-label={`Sort by ${label}`}
+              aria-pressed={sort === k}
             >
               {label}
             </button>
@@ -176,12 +170,26 @@ export function CompaniesScreen() {
       </div>
 
       {loading && (
-        <p
-          className="byline"
-          style={{ marginTop: 24, color: "var(--ink-32)" }}
-        >
-          Loading companies…
-        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 22 }}>
+          {[1, 2, 3, 4, 5].map((idx) => (
+            <div
+              key={idx}
+              className="lh-companies-row"
+              style={{ borderBottom: "1px solid var(--ink-08)", padding: "18px 0" }}
+            >
+              <div className="skeleton" style={{ width: "20px", height: "14px" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div className="skeleton" style={{ width: "120px", height: "17px" }} />
+                <div className="skeleton" style={{ width: "80px", height: "11px" }} />
+              </div>
+              <div className="skeleton" style={{ width: "100px", height: "14px" }} />
+              <div className="skeleton" style={{ width: "140px", height: "14px" }} />
+              <div className="skeleton" style={{ width: "40px", height: "14px", justifySelf: "end" }} />
+              <div className="skeleton" style={{ width: "30px", height: "22px", justifySelf: "end" }} />
+              <div className="skeleton skeleton-chip" style={{ justifySelf: "end" }} />
+            </div>
+          ))}
+        </div>
       )}
       {error && (
         <p
@@ -196,20 +204,7 @@ export function CompaniesScreen() {
         const isInspected = (c.inspection_count ?? 0) > 0;
         const rowContent = (
           <div
-            className="lh-companies-row"
-            style={{ cursor: isInspected ? "pointer" : "default" }}
-            onMouseEnter={(e) => {
-              if (isInspected) {
-                ((e.currentTarget as HTMLDivElement).style.background =
-                  "var(--cream-deep)");
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (isInspected) {
-                ((e.currentTarget as HTMLDivElement).style.background =
-                  "transparent");
-              }
-            }}
+            className={`lh-companies-row ${isInspected ? "is-inspected" : ""}`}
           >
             <div
               className="mono"

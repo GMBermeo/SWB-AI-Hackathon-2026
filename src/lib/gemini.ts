@@ -128,9 +128,11 @@ redirect that budget to Active and Fair, which are posting-specific.
 
 For every meaningful hit, capture the URL — that becomes the "src" for
 your evidence item. NEVER cite "Internal research", "lighthouse/...",
-"posting", "company website", "training data", or "knowledge" as a
+"company website", "training data", or "knowledge" as a
 source — those are not real URLs. If a signal can't be verified, say so
 explicitly with weight "weak" and src "lighthouse/no-source".
+
+CRITICAL URL RULE: NEVER invent or guess a specific deep job URL/slug on a company's domain (e.g. "loopcard.ca/careers/senior-backend-developer-payments") if it wasn't returned verbatim in Google Search grounding. If you want to cite the company's own domain or general careers page, cite the verified main domain or general careers page (e.g. "loopcard.ca" or "loopcard.ca/careers") instead of guessing. You may also cite the original target posting URL itself (passed in the prompt) when verifying signals directly found in the original posting text.
 
 ===== EVIDENCE STYLE GUIDE — MANDATORY =====
 
@@ -322,10 +324,11 @@ Evidence source + style rules (HARD):
 - Every evidence item's "src" must be a real URL or a real domain
   (e.g. "linkedin.com/in/maya-chen", "sec.gov/cgi-bin/browse-edgar?action=...").
 - NEVER use placeholder sources: "Internal research", "company website",
-  "posting", "lighthouse/anything", "research", "training data" are all FORBIDDEN.
+  "lighthouse/anything", "research", "training data" are all FORBIDDEN.
   If the evidence dossier used a placeholder, downgrade that evidence
   to weight "weak" and rewrite the src to "lighthouse/no-source" so it
   is obvious to the reader.
+- NEVER invent or guess a specific deep job URL/slug on a company's domain (e.g. "loopcard.ca/careers/senior-backend-developer-payments") if it wasn't returned verbatim in the grounding. If the dossier contains a guessed or placeholder URL, rewrite the src to the verified main domain or general careers page (e.g. "loopcard.ca" or "loopcard.ca/careers"). You may also use the original target posting URL itself (passed in this prompt) as the source for details directly extracted from the job posting.
 - Every "text" must be ONE self-contained sentence with at least one
   concrete element (YYYY-MM-DD date / dollar amount / discrete count /
   named human / named investor / named product). Generic phrases like

@@ -113,8 +113,22 @@ export function Masthead({ edition }: { edition: string }) {
 
   const renderSearchBox = (isMobile: boolean) => (
     <div className="lh-search-box" ref={isMobile ? undefined : dropdownRef}>
-      <form onSubmit={handleSearchSubmit}>
-        <span className="lh-search-icon">⚲</span>
+      <form onSubmit={handleSearchSubmit} role="search">
+        <span className="lh-search-icon" aria-hidden="true" style={{ display: "inline-flex", alignItems: "center" }}>
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="7" cy="7" r="5" />
+            <path d="m11 11 3.5 3.5" />
+          </svg>
+        </span>
         <input
           type="text"
           className="lh-search-input"
@@ -243,17 +257,13 @@ export function Masthead({ edition }: { edition: string }) {
                 key={href}
                 href={href}
                 data-on={active ? "1" : "0"}
+                className="nav-link"
                 style={{
                   textDecoration: "none",
                   display: "inline-block",
                 }}
               >
-                <button
-                  data-on={active ? "1" : "0"}
-                  style={{ pointerEvents: "none" }}
-                >
-                  {label}
-                </button>
+                {label}
               </Link>
             );
           })}

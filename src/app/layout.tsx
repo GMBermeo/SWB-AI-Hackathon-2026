@@ -79,6 +79,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Note: These colors are derived from --cream (#faf8f3) and --ink (#14130f) in globals.css
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#faf8f3" },
     { media: "(prefers-color-scheme: dark)", color: "#14130f" },
@@ -86,7 +87,8 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-const EDITION_DATE = new Date("2026-05-21");
+// Dynamic edition date representing the date of compilation/render for standard newspaper realism
+const EDITION_DATE = new Date();
 const EDITION = `Vol. I · No. 142 · ${EDITION_DATE.toLocaleDateString("en-US", {
   weekday: "long",
 })}`;
@@ -123,6 +125,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
+        <a href="#main" className="skip-to-content">
+          Skip to main content
+        </a>
         <div className="page">
           <Masthead edition={EDITION} />
           {children}
