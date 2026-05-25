@@ -60,11 +60,11 @@ export function CompaniesScreen() {
     const q = query.trim().toLowerCase();
     const filtered = q
       ? companies.filter(
-          (c) =>
-            c.display_name.toLowerCase().includes(q) ||
-            c.slug.toLowerCase().includes(q) ||
-            (c.primary_domain || "").toLowerCase().includes(q),
-        )
+        (c) =>
+          c.display_name.toLowerCase().includes(q) ||
+          c.slug.toLowerCase().includes(q) ||
+          (c.primary_domain || "").toLowerCase().includes(q),
+      )
       : companies.slice();
     const sorted = filtered.slice();
     sorted.sort((a, b) => {

@@ -30,7 +30,13 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    const rows = (data || []) as CompanyRow[];
+    const rows = ((data || []) as CompanyRow[]).map((c) => ({
+      ...c,
+      primary_domain:
+        c.primary_domain && c.primary_domain.length > 101
+          ? c.primary_domain.slice(0, 101) + "…"
+          : c.primary_domain,
+    }));
     return NextResponse.json({ companies: rows, count: rows.length });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Failed to load companies.";
