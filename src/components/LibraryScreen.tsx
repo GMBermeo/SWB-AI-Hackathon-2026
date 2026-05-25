@@ -174,18 +174,22 @@ export function LibraryScreen() {
             {String(i + 1).padStart(3, "0")}
           </div>
           <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: "-0.012em" }}>
-            <Link
-              href={`/companies/${companySlug(row.company)}`}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                color: "inherit",
-                textDecoration: "underline",
-                textDecorationColor: "var(--ink-32)",
-                textUnderlineOffset: 3,
-              }}
-            >
-              {row.company}
-            </Link>
+            {row._full ? (
+              <Link
+                href={`/report/${row._full.id}`}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  color: "inherit",
+                  textDecoration: "underline",
+                  textDecorationColor: "var(--ink-32)",
+                  textUnderlineOffset: 3,
+                }}
+              >
+                {row.company}
+              </Link>
+            ) : (
+              row.company
+            )}
           </div>
           <div style={{ fontSize: 15, color: "var(--ink-80)" }}>{row.role}</div>
           <div className="mono" style={{ fontSize: 11, color: "var(--ink-50)" }}>
