@@ -102,14 +102,14 @@ export function LibraryScreen() {
   }));
 
   // Live inspections first (most recent), then bundled demos, then filler.
-  // De-dupe by URL/source so live overrides demo if a user verified one of
+  // De-dupe by URL/id so live overrides demo if a user verified one of
   // the bundled URLs.
-  const seenIds = new Set<string>();
+  const seenKeys = new Set<string>();
   const all: Row[] = [];
   for (const r of [...liveRows, ...demoRows]) {
-    const key = `${r.company}::${r.role}`;
-    if (seenIds.has(key)) continue;
-    seenIds.add(key);
+    const key = r._full?.url || r.id;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
     all.push(r);
   }
   if (all.length < 8) all.push(...LIBRARY_EXTRA);

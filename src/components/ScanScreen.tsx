@@ -94,18 +94,84 @@ export function ScanScreen() {
     }, 380);
 
     (async () => {
-      try {
-        const res = await fetch("/api/verify", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ url: request.url }),
-        });
-        const json = await res.json();
-        if (aborted) return;
-        if (!res.ok || !json?.posting) {
-          throw new Error(json?.error || "Verification failed");
+      let pollCount = 0;
+      const maxPolls = 40; // up to 120 seconds (40 attempts * 3 seconds)
+
+      const poll = async (): Promise<Posting> => {
+        if (aborted) throw new Error("Verification aborted");
+
+        try {
+          const res = await fetch("/api/verify", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ url: request.url }),
+          });
+
+          if (res.status === 504) {
+            throw new Error("The live verification is taking longer than Vercel's 60-second limit. We are working on processing it in the background! Please check the Library in a moment.");
+          }
+
+          const contentType = res.headers.get("content-type") || "";
+          if (!contentType.includes("application/json")) {
+            // Occasional Gateway / Vercel deployment glitch, retry
+            pollCount++;
+            if (pollCount >= maxPolls) {
+              throw new Error("Verification is taking longer than expected. It is still processing in the background, so you can safely check back in the Library in a minute.");
+            }
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            return poll();
+          }
+
+          const json = await res.json();
+
+          if (!res.ok) {
+            throw new Error(json?.error || "Verification failed");
+          }
+
+          if (json?.pending) {
+            pollCount++;
+            if (pollCount >= maxPolls) {
+              throw new Error("Verification is taking longer than expected. It is still processing in the background, so you can safely check back in the Library in a minute.");
+            }
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            return poll();
+          }
+
+          if (!json?.posting) {
+            throw new Error("Server returned an empty verification result.");
+          }
+
+          return json.posting as Posting;
+        } catch (e: any) {
+          if (aborted) throw new Error("Verification aborted");
+
+          const msg = e instanceof Error ? e.message : String(e);
+          // If it's a specific rate limit, timeout, or explicit quota failure, bubble it up immediately
+          if (
+            msg.includes("limit exceeded") ||
+            msg.includes("quota") ||
+            msg.includes("taking longer than expected") ||
+            msg.includes("taking longer than Vercel's") ||
+            msg.includes("timed out")
+          ) {
+            throw e;
+          }
+
+          // Otherwise, it might be a transient network failure, retry
+          pollCount++;
+          if (pollCount >= maxPolls) {
+            throw new Error("Verification is taking longer than expected. It is still processing in the background, so you can safely check back in the Library in a minute.");
+          }
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          return poll();
         }
-        livePostingRef.current = json.posting as Posting;
+      };
+
+      try {
+        const posting = await poll();
+        if (aborted) return;
+
+        livePostingRef.current = posting;
         // Let the animation play through to the last step, then finish.
         clearInterval(id);
         setIdx(SCAN_STEPS.length);
